@@ -299,7 +299,6 @@
     </div>
 
     <script>
-        // Cấu hình MQTT qua WebSocket WSS port 8884
         const brokerUrl = 'wss://dc96c9840eee44adbb0987edf4172106.s1.eu.hivemq.cloud:8884/mqtt';
         const options = {
             clientId: 'WebDashboard_' + Math.random().toString(16).substr(2, 8),
@@ -328,6 +327,23 @@
             return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
         }
 
+        // Lấy số thứ tự thiết bị toàn cục (dev01, dev02, dev03...) cho khoa hiện tại
+        function getGlobalDeviceIndex(deptKey, localIndex) {
+            let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
+            let key = `${deptKey}_${localIndex}`;
+            if (!mapping[key]) {
+                // Tự động cấp phát số thứ tự thiết bị toàn viện tiếp theo (1, 2, 3...)
+                let allAssigned = Object.values(mapping);
+                let nextId = 1;
+                while (allAssigned.includes(nextId)) {
+                    nextId++;
+                }
+                mapping[key] = nextId;
+                localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
+            }
+            return mapping[key];
+        }
+
         function renderApp() {
             let count = getDeviceCount();
             if (count === 0) {
@@ -350,19 +366,20 @@
             restoreTelemetryToUI();
         }
 
-        // 1. Render dạng Lưới theo Khoa (Tên dạng Thiết bị 01 - A)
+        // 1. Render dạng Lưới theo Khoa (Hiển thị đúng dạng Thiết bị 1 - A, Thiết bị 2 - A...)
         function renderGridView() {
             let count = getDeviceCount();
-            let deptLetter = currentDept.replace('KHOA_', ''); // Lấy chữ A, B hoặc C
+            let deptLetter = currentDept.replace('KHOA_', ''); 
             let html = '<div class="device-grid">';
             for (let i = 1; i <= count; i++) {
-                let devId = i < 10 ? `0${i}` : `${i}`;
-                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${devId}_bed`) || `Giường ${devId}`;
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`; // Dùng để nhận MQTT đúng thiết bị
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
 
                 html += `
-                    <div class="device-card" id="device-${devId}">
+                    <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <div class="device-header">
-                            <span class="device-title">Thiết bị ${devId} - ${deptLetter}</span>
+                            <span class="device-title">Thiết bị ${globalId} - ${deptLetter}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 11px; color: var(--neon-green); font-weight: bold;">📶 MQTT OK</span>
                                 <button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})">🗑️ Xóa</button>
@@ -371,13 +388,13 @@
                         
                         <div class="bed-assign-row">
                             <label>VỊ TRÍ LẮP ĐẶT:</label>
-                            <input type="text" class="bed-input" id="bedname-${devId}" value="${savedBed}" onchange="saveBedMapping('${devId}')" placeholder="Nhập giường...">
+                            <input type="text" class="bed-input" id="bedname-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMapping('${i}')" placeholder="Nhập giường...">
                         </div>
 
                         <div class="metric-box">
                             <div class="metric-label">ACTUAL SPEED</div>
                             <div class="metric-value-row">
-                                <span class="metric-value" id="flow-${devId}">0</span>
+                                <span class="metric-value" id="flow-${devTopicId}">0</span>
                                 <span class="metric-unit">gtt/min</span>
                             </div>
                         </div>
@@ -385,7 +402,7 @@
                         <div class="metric-box">
                             <div class="metric-label">TARGET SPEED</div>
                             <div class="metric-value-row">
-                                <span class="metric-value target" id="target-${devId}">0</span>
+                                <span class="metric-value target" id="target-${devTopicId}">0</span>
                                 <span class="metric-unit">gtt/min</span>
                             </div>
                         </div>
@@ -393,12 +410,12 @@
                         <div class="metric-box">
                             <div class="metric-label">TOTAL VOLUME (Infused / Limit)</div>
                             <div class="metric-value-row">
-                                <span class="metric-value" id="infused-${devId}" style="font-size: 18px;"><span id="infval-${devId}">0</span> / <span id="limit-${devId}">0</span></span>
+                                <span class="metric-value" style="font-size: 18px;"><span id="infval-${devTopicId}">0</span> / <span id="limit-${devTopicId}">0</span></span>
                                 <span class="metric-unit">ml</span>
                             </div>
                         </div>
 
-                        <div class="device-status-footer" id="status-${devId}">
+                        <div class="device-status-footer" id="status-${devTopicId}">
                             Đang chờ tín hiệu...
                         </div>
                     </div>
@@ -408,7 +425,7 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // 2. Render dạng Bảng theo Khoa (Tên dạng Thiết bị 01 - A)
+        // 2. Render dạng Bảng theo Khoa
         function renderTableView() {
             let count = getDeviceCount();
             let deptLetter = currentDept.replace('KHOA_', '');
@@ -429,17 +446,18 @@
                         <tbody>
             `;
             for (let i = 1; i <= count; i++) {
-                let devId = i < 10 ? `0${i}` : `${i}`;
-                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${devId}_bed`) || `Giường ${devId}`;
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
 
                 html += `
-                    <tr>
-                        <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${devId} - ${deptLetter}</td>
-                        <td><input type="text" class="bed-input" id="bedname-tbl-${devId}" value="${savedBed}" onchange="saveBedMappingTable('${devId}')"></td>
-                        <td><span id="flow-tbl-${devId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
-                        <td><span id="target-tbl-${devId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
-                        <td><span id="infval-tbl-${devId}">0</span> / <span id="limit-tbl-${devId}">0</span> ml</td>
-                        <td id="status-tbl-${devId}" style="color: var(--text-muted); font-weight: 500;">Đang chờ...</td>
+                    <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
+                        <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${globalId} - ${deptLetter}</td>
+                        <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')"></td>
+                        <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
+                        <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
+                        <td><span id="infval-tbl-${devTopicId}">0</span> / <span id="limit-tbl-${devTopicId}">0</span> ml</td>
+                        <td id="status-tbl-${devTopicId}" style="color: var(--text-muted); font-weight: 500;">Đang chờ...</td>
                         <td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})">🗑️ Xóa</button></td>
                     </tr>
                 `;
@@ -469,13 +487,24 @@
         function removeDevice(index) {
             let count = getDeviceCount();
             if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này khỏi ${currentDept.replace('_', ' ')} không?`)) {
+                // Xóa mapping cũ
+                let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
+                delete mapping[`${currentDept}_${index}`];
+                localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
+
                 for (let i = index; i < count; i++) {
-                    let nextId = (i + 1) < 10 ? `0${i+1}` : `${i+1}`;
-                    let currId = i < 10 ? `0${i}` : `${i}`;
-                    let nextBed = localStorage.getItem(`infucare_${currentDept}_dev_${nextId}_bed`) || `Giường ${i+1}`;
-                    localStorage.setItem(`infucare_${currentDept}_dev_${currId}_bed`, nextBed);
+                    let nextBed = localStorage.getItem(`infucare_${currentDept}_dev_${i+1}_bed`) || `Giường ${i+1}`;
+                    localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, nextBed);
+                    // Dịch chuyển mapping
+                    let nextMapKey = `${currentDept}_${i+1}`;
+                    let currMapKey = `${currentDept}_${i}`;
+                    if (mapping[nextMapKey]) {
+                        mapping[currMapKey] = mapping[nextMapKey];
+                        delete mapping[nextMapKey];
+                    }
                 }
                 localStorage.removeItem(`infucare_${currentDept}_dev_${count}_bed`);
+                localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
                 localStorage.setItem(`infucare_device_count_${currentDept}`, count - 1);
                 renderApp();
             }
@@ -487,62 +516,62 @@
             renderApp();
         }
 
-        function saveBedMapping(devId) {
-            let val = document.getElementById(`bedname-${devId}`).value;
-            localStorage.setItem(`infucare_${currentDept}_dev_${devId}_bed`, val);
+        function saveBedMapping(i) {
+            let val = document.getElementById(`bedname-${currentDept}-${i}`).value;
+            localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
         }
 
-        function saveBedMappingTable(devId) {
-            let val = document.getElementById(`bedname-tbl-${devId}`).value;
-            localStorage.setItem(`infucare_${currentDept}_dev_${devId}_bed`, val);
+        function saveBedMappingTable(i) {
+            let val = document.getElementById(`bedname-tbl-${currentDept}-${i}`).value;
+            localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
         }
 
         function restoreTelemetryToUI() {
-            if (!telemetryStore[currentDept]) return;
             let count = getDeviceCount();
             for (let i = 1; i <= count; i++) {
-                let devId = i < 10 ? `0${i}` : `${i}`;
-                let data = telemetryStore[currentDept][devId];
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                let data = telemetryStore[devTopicId];
                 if (!data) continue;
 
                 if (currentView === 'grid') {
                     if (data.flow !== undefined) {
-                        let el = document.getElementById(`flow-${devId}`);
+                        let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) el.innerText = data.flow;
-                        let footer = document.getElementById(`status-${devId}`);
+                        let footer = document.getElementById(`status-${devTopicId}`);
                         if(footer) { footer.innerText = data.statusText || "Đang truyền bình thường"; footer.classList.add('active'); }
                     }
                     if (data.infused !== undefined) {
-                        let el = document.getElementById(`infval-${devId}`);
+                        let el = document.getElementById(`infval-${devTopicId}`);
                         if(el) el.innerText = data.infused;
                     }
                     if (data.target !== undefined) {
-                        let el = document.getElementById(`target-${devId}`);
+                        let el = document.getElementById(`target-${devTopicId}`);
                         if(el) el.innerText = data.target;
                     }
                     if (data.limit !== undefined) {
-                        let el = document.getElementById(`limit-${devId}`);
+                        let el = document.getElementById(`limit-${devTopicId}`);
                         if(el) el.innerText = data.limit;
                     }
                 } else {
                     if (data.flow !== undefined) {
-                        let el = document.getElementById(`flow-tbl-${devId}`);
+                        let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = data.flow;
                     }
                     if (data.infused !== undefined) {
-                        let el = document.getElementById(`infval-tbl-${devId}`);
+                        let el = document.getElementById(`infval-tbl-${devTopicId}`);
                         if(el) el.innerText = data.infused;
                     }
                     if (data.target !== undefined) {
-                        let el = document.getElementById(`target-tbl-${devId}`);
+                        let el = document.getElementById(`target-tbl-${devTopicId}`);
                         if(el) el.innerText = data.target;
                     }
                     if (data.limit !== undefined) {
-                        let el = document.getElementById(`limit-tbl-${devId}`);
+                        let el = document.getElementById(`limit-tbl-${devTopicId}`);
                         if(el) el.innerText = data.limit;
                     }
                     if (data.statusText !== undefined) {
-                        let el = document.getElementById(`status-tbl-${devId}`);
+                        let el = document.getElementById(`status-tbl-${devTopicId}`);
                         if(el) el.innerText = data.statusText;
                     }
                 }
@@ -567,36 +596,36 @@
             const parts = topic.split('/');
             
             if (parts.length >= 3) {
-                const devId = parts[1]; 
-                const metric = parts[2]; 
-                let cardId = devId.replace('dev', '');
+                const devTopicId = parts[1]; // vd: dev01, dev02
+                const metric = parts[2]; // flow, infused, target, limit_ml, status
 
-                if (!telemetryStore[currentDept]) telemetryStore[currentDept] = {};
-                if (!telemetryStore[currentDept][cardId]) telemetryStore[currentDept][cardId] = {};
+                if (!telemetryStore[devTopicId]) telemetryStore[devTopicId] = {};
 
-                if (metric === 'flow') telemetryStore[currentDept][cardId].flow = message;
-                if (metric === 'infused') telemetryStore[currentDept][cardId].infused = message;
-                if (metric === 'target') telemetryStore[currentDept][cardId].target = message;
-                if (metric === 'limit_ml') telemetryStore[currentDept][cardId].limit = message;
-                if (metric === 'status') telemetryStore[currentDept][cardId].statusText = message;
+                if (metric === 'flow') telemetryStore[devTopicId].flow = message;
+                if (metric === 'infused') telemetryStore[devTopicId].infused = message;
+                if (metric === 'target') telemetryStore[devTopicId].target = message;
+                if (metric === 'limit_ml') telemetryStore[devTopicId].limit = message;
+                if (metric === 'status') telemetryStore[devTopicId].statusText = message;
 
                 if (currentView === 'grid') {
                     if (metric === 'flow') {
-                        let el = document.getElementById(`flow-${cardId}`);
-                        if(el) el.innerText = message;
-                        let footer = document.getElementById(`status-${cardId}`);
-                        if(footer) { footer.innerText = "Đang truyền bình thường"; footer.classList.add('active'); }
+                        let el = document.getElementById(`flow-${devTopicId}`);
+                        if(el) {
+                            el.innerText = message;
+                            let footer = document.getElementById(`status-${devTopicId}`);
+                            if(footer) { footer.innerText = "Đang truyền bình thường"; footer.classList.add('active'); }
+                        }
                     } else if (metric === 'infused') {
-                        let el = document.getElementById(`infval-${cardId}`);
+                        let el = document.getElementById(`infval-${devTopicId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'target') {
-                        let el = document.getElementById(`target-${cardId}`);
+                        let el = document.getElementById(`target-${devTopicId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'limit_ml') {
-                        let limitEl = document.getElementById(`limit-${cardId}`);
+                        let limitEl = document.getElementById(`limit-${devTopicId}`);
                         if(limitEl) limitEl.innerText = message;
                     } else if (metric === 'status') {
-                        let footer = document.getElementById(`status-${cardId}`);
+                        let footer = document.getElementById(`status-${devTopicId}`);
                         if(footer) {
                             footer.innerText = message;
                             if(message === 'NORMAL' || message === 'RUNNING_TEST') footer.classList.add('active');
@@ -605,19 +634,19 @@
                     }
                 } else {
                     if (metric === 'flow') {
-                        let el = document.getElementById(`flow-tbl-${cardId}`);
+                        let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'infused') {
-                        let el = document.getElementById(`infval-tbl-${cardId}`);
+                        let el = document.getElementById(`infval-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'target') {
-                        let el = document.getElementById(`target-tbl-${cardId}`);
+                        let el = document.getElementById(`target-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'limit_ml') {
-                        let limitEl = document.getElementById(`limit-tbl-${cardId}`);
+                        let limitEl = document.getElementById(`limit-tbl-${devTopicId}`);
                         if(limitEl) limitEl.innerText = message;
                     } else if (metric === 'status') {
-                        let el = document.getElementById(`status-tbl-${cardId}`);
+                        let el = document.getElementById(`status-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
                     }
                 }
