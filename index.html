@@ -282,7 +282,7 @@
         <div class="dept-tabs">
             <button class="tab-btn active" onclick="switchDept('KHOA_A', this)">KHOA A</button>
             <button class="tab-btn" onclick="switchDept('KHOA_B', this)">KHOA B</button>
-            <button class="tab-btn" onclick="switchDept('KHOA_C', this)">KHOA C</button>
+            <button class="tab-btn" onclick="switchDept('KHOA_C', this)">KHOA_C</button>
         </div>
 
         <div class="actions-right">
@@ -310,7 +310,7 @@
 
         const client = mqtt.connect(brokerUrl, options);
 
-        // Lưu trữ bộ nhớ đệm dữ liệu telemetry của các thiết bị theo từng khoa
+        // Lưu trữ bộ nhớ đệm dữ liệu telemetry, mặc định khởi tạo giá trị 0
         let telemetryStore = {};
 
         let currentDept = localStorage.getItem('infucare_current_dept') || 'KHOA_A';
@@ -336,11 +336,10 @@
             } else {
                 renderTableView();
             }
-            // Khôi phục lại dữ liệu đã lưu vào các thẻ sau khi render
             restoreTelemetryToUI();
         }
 
-        // 1. Render dạng Lưới theo Khoa
+        // 1. Render dạng Lưới theo Khoa (Mặc định giá trị là 0)
         function renderGridView() {
             let count = getDeviceCount();
             let html = '<div class="device-grid">';
@@ -397,7 +396,7 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // 2. Render dạng Bảng theo Khoa
+        // 2. Render dạng Bảng theo Khoa (Mặc định giá trị là 0)
         function renderTableView() {
             let count = getDeviceCount();
             let html = `
@@ -440,7 +439,6 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // Chuyển Khoa phòng
         function switchDept(deptKey, btn) {
             currentDept = deptKey;
             localStorage.setItem('infucare_current_dept', deptKey);
@@ -490,7 +488,7 @@
             localStorage.setItem(`infucare_${currentDept}_dev_${devId}_bed`, val);
         }
 
-        // Khôi phục dữ liệu từ bộ nhớ đệm vào giao diện sau khi render
+        // Khôi phục dữ liệu từ bộ nhớ đệm (nếu có), nếu không có sẽ giữ mặc định là 0
         function restoreTelemetryToUI() {
             if (!telemetryStore[currentDept]) return;
             let count = getDeviceCount();
@@ -500,42 +498,42 @@
                 if (!data) continue;
 
                 if (currentView === 'grid') {
-                    if (data.flow) {
+                    if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-${devId}`);
                         if(el) el.innerText = data.flow;
                         let footer = document.getElementById(`status-${devId}`);
                         if(footer) { footer.innerText = data.statusText || "Đang truyền bình thường"; footer.classList.add('active'); }
                     }
-                    if (data.infused) {
+                    if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-${devId}`);
                         if(el) el.innerText = data.infused;
                     }
-                    if (data.target) {
+                    if (data.target !== undefined) {
                         let el = document.getElementById(`target-${devId}`);
                         if(el) el.innerText = data.target;
                     }
-                    if (data.limit) {
+                    if (data.limit !== undefined) {
                         let el = document.getElementById(`limit-${devId}`);
                         if(el) el.innerText = data.limit;
                     }
                 } else {
-                    if (data.flow) {
+                    if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-tbl-${devId}`);
                         if(el) el.innerText = data.flow;
                     }
-                    if (data.infused) {
+                    if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-tbl-${devId}`);
                         if(el) el.innerText = data.infused;
                     }
-                    if (data.target) {
+                    if (data.target !== undefined) {
                         let el = document.getElementById(`target-tbl-${devId}`);
                         if(el) el.innerText = data.target;
                     }
-                    if (data.limit) {
+                    if (data.limit !== undefined) {
                         let el = document.getElementById(`limit-tbl-${devId}`);
                         if(el) el.innerText = data.limit;
                     }
-                    if (data.statusText) {
+                    if (data.statusText !== undefined) {
                         let el = document.getElementById(`status-tbl-${devId}`);
                         if(el) el.innerText = data.statusText;
                     }
@@ -557,17 +555,16 @@
             badge.classList.remove('online');
         });
 
-        // Nhận dữ liệu thực tế từ ESP32 phân tách theo từng device ID
+        // Nhận dữ liệu thực tế từ ESP32
         client.on('message', (topic, payload) => {
             const message = payload.toString();
             const parts = topic.split('/');
             
             if (parts.length >= 3) {
-                const devId = parts[1]; // vd: dev01
-                const metric = parts[2]; // vd: flow, infused, target, limit_ml, status
+                const devId = parts[1]; 
+                const metric = parts[2]; 
                 let cardId = devId.replace('dev', '');
 
-                // Lưu vào bộ nhớ đệm theo khoa hiện tại
                 if (!telemetryStore[currentDept]) telemetryStore[currentDept] = {};
                 if (!telemetryStore[currentDept][cardId]) telemetryStore[currentDept][cardId] = {};
 
@@ -577,7 +574,6 @@
                 if (metric === 'limit_ml') telemetryStore[currentDept][cardId].limit = message;
                 if (metric === 'status') telemetryStore[currentDept][cardId].statusText = message;
 
-                // Cập nhật trực tiếp lên giao diện hiện tại
                 if (currentView === 'grid') {
                     if (metric === 'flow') {
                         let el = document.getElementById(`flow-${cardId}`);
@@ -612,7 +608,7 @@
                         let el = document.getElementById(`target-tbl-${cardId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'limit_ml') {
-                        let el = document.getElementById(`limit-tbl-${cardId}`);
+                        let limitEl = document.getElementById(`limit-tbl-${cardId}`);
                         if(limitEl) limitEl.innerText = message;
                     } else if (metric === 'status') {
                         let el = document.getElementById(`status-tbl-${cardId}`);
