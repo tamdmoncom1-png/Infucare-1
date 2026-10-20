@@ -8,11 +8,11 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --card-bg: rgba(255, 255, 255, 0.97); /* Nền trắng đục rõ nét */
-            --card-border: #cbd5e1;               /* Viền rõ ràng hơn */
+            --card-bg: rgba(255, 255, 255, 0.97);
+            --card-border: #cbd5e1;
             --primary-blue: #0284c7;
             --neon-green: #16a34a;
-            --text-main: #0f172a;                 /* Chữ đậm tối đa để dễ đọc */
+            --text-main: #0f172a;
             --text-muted: #475569;
             --accent-blue: #2563eb;
             --danger-red: #dc2626;
@@ -29,8 +29,6 @@
             padding: 20px;
             min-height: 100vh;
         }
-
-        /* Lớp phủ mờ nhẹ phía sau giúp làm dịu ảnh nền để nổi bật nội dung */
         body::before {
             content: "";
             position: fixed;
@@ -38,8 +36,6 @@
             background: rgba(248, 250, 252, 0.55); 
             z-index: -1;
         }
-
-        /* Header Điều Khiển Chính */
         .header-bar {
             display: flex;
             justify-content: space-between;
@@ -60,7 +56,6 @@
             color: var(--primary-blue);
             letter-spacing: 0.5px;
         }
-        /* Tabs Khoa */
         .dept-tabs {
             display: flex;
             gap: 10px;
@@ -81,7 +76,6 @@
             border-color: var(--accent-blue);
             box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
         }
-        /* Actions right */
         .actions-right {
             display: flex;
             align-items: center;
@@ -127,13 +121,9 @@
             background: #f0fdf4;
             border-color: #bbf7d0;
         }
-
-        /* Container hiển thị */
         .content-container {
             margin-top: 20px;
         }
-
-        /* 1. Dạng Lưới (Grid View) */
         .device-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -179,8 +169,6 @@
         .btn-delete:hover {
             background: #fecaca;
         }
-
-        /* Ô gán vị trí giường */
         .bed-assign-row {
             display: flex;
             align-items: center;
@@ -207,8 +195,6 @@
             text-align: center;
             font-size: 13px;
         }
-
-        /* Các khối thông số */
         .metric-box {
             background: #f8fafc;
             border-radius: 10px;
@@ -241,8 +227,6 @@
             color: var(--text-muted);
             font-weight: 600;
         }
-        
-        /* Trạng thái dưới cùng */
         .device-status-footer {
             background: #e2e8f0;
             text-align: center;
@@ -258,8 +242,6 @@
             background: #dcfce7;
             border: 1px solid #bbf7d0;
         }
-
-        /* 2. Dạng Bảng (Table View) */
         .device-table-wrapper {
             background: var(--card-bg);
             border: 1.5px solid var(--card-border);
@@ -298,9 +280,9 @@
         <div class="logo">InfuCare Dashboard</div>
         
         <div class="dept-tabs">
-            <button class="tab-btn active" onclick="switchDept('KHOA A', this)">KHOA A</button>
-            <button class="tab-btn" onclick="switchDept('KHOA B', this)">KHOA B</button>
-            <button class="tab-btn" onclick="switchDept('KHOA C', this)">KHOA C</button>
+            <button class="tab-btn active" onclick="switchDept('KHOA_A', this)">KHOA A</button>
+            <button class="tab-btn" onclick="switchDept('KHOA_B', this)">KHOA B</button>
+            <button class="tab-btn" onclick="switchDept('KHOA_C', this)">KHOA C</button>
         </div>
 
         <div class="actions-right">
@@ -328,8 +310,24 @@
 
         const client = mqtt.connect(brokerUrl, options);
 
-        let deviceCount = parseInt(localStorage.getItem('infucare_device_count')) || 5;
+        // Quản lý Khoa và Trạng thái hiển thị
+        let currentDept = localStorage.getItem('infucare_current_dept') || 'KHOA_A';
         let currentView = localStorage.getItem('infucare_view_mode') || 'grid';
+
+        // Khôi phục tab đang chọn khi tải lại trang
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.getAttribute('onclick').includes(currentDept)) {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                }
+            });
+            renderApp();
+        });
+
+        function getDeviceCount() {
+            return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 4;
+        }
 
         function renderApp() {
             if (currentView === 'grid') {
@@ -339,12 +337,13 @@
             }
         }
 
-        // 1. Render dạng Lưới
+        // 1. Render dạng Lưới theo Khoa
         function renderGridView() {
+            let count = getDeviceCount();
             let html = '<div class="device-grid">';
-            for (let i = 1; i <= deviceCount; i++) {
+            for (let i = 1; i <= count; i++) {
                 let devId = i < 10 ? `0${i}` : `${i}`;
-                let savedBed = localStorage.getItem(`infucare_dev_${devId}_bed`) || `Giường ${devId}`;
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${devId}_bed`) || `Giường ${devId}`;
 
                 html += `
                     <div class="device-card" id="device-${devId}">
@@ -395,8 +394,9 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // 2. Render dạng Bảng
+        // 2. Render dạng Bảng theo Khoa
         function renderTableView() {
+            let count = getDeviceCount();
             let html = `
                 <div class="device-table-wrapper">
                     <table>
@@ -413,9 +413,9 @@
                         </thead>
                         <tbody>
             `;
-            for (let i = 1; i <= deviceCount; i++) {
+            for (let i = 1; i <= count; i++) {
                 let devId = i < 10 ? `0${i}` : `${i}`;
-                let savedBed = localStorage.getItem(`infucare_dev_${devId}_bed`) || `Giường ${devId}`;
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${devId}_bed`) || `Giường ${devId}`;
 
                 html += `
                     <tr>
@@ -437,27 +437,36 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
+        // Chuyển Khoa phòng
+        function switchDept(deptKey, btn) {
+            currentDept = deptKey;
+            localStorage.setItem('infucare_current_dept', deptKey);
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderApp();
+        }
+
         function addNewDevice() {
-            deviceCount++;
-            localStorage.setItem('infucare_device_count', deviceCount);
+            let count = getDeviceCount() + 1;
+            localStorage.setItem(`infucare_device_count_${currentDept}`, count);
             renderApp();
         }
 
         function removeDevice(index) {
-            if (deviceCount <= 1) {
-                alert("Cần giữ lại ít nhất một thiết bị trong danh sách!");
+            let count = getDeviceCount();
+            if (count <= 1) {
+                alert("Cần giữ lại ít nhất một thiết bị trong khoa!");
                 return;
             }
-            if (confirm(`Bạn có chắc chắn muốn xóa Thiết bị ${index < 10 ? '0' + index : index} không?`)) {
-                for (let i = index; i < deviceCount; i++) {
+            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này khỏi ${currentDept.replace('_', ' ')} không?`)) {
+                for (let i = index; i < count; i++) {
                     let nextId = (i + 1) < 10 ? `0${i+1}` : `${i+1}`;
                     let currId = i < 10 ? `0${i}` : `${i}`;
-                    let nextBed = localStorage.getItem(`infucare_dev_${nextId}_bed`) || `Giường ${i+1}`;
-                    localStorage.setItem(`infucare_dev_${currId}_bed`, nextBed);
+                    let nextBed = localStorage.getItem(`infucare_${currentDept}_dev_${nextId}_bed`) || `Giường ${i+1}`;
+                    localStorage.setItem(`infucare_${currentDept}_dev_${currId}_bed`, nextBed);
                 }
-                localStorage.removeItem(`infucare_dev_${deviceCount}_bed`);
-                deviceCount--;
-                localStorage.setItem('infucare_device_count', deviceCount);
+                localStorage.removeItem(`infucare_${currentDept}_dev_${count}_bed`);
+                localStorage.setItem(`infucare_device_count_${currentDept}`, count - 1);
                 renderApp();
             }
         }
@@ -470,17 +479,12 @@
 
         function saveBedMapping(devId) {
             let val = document.getElementById(`bedname-${devId}`).value;
-            localStorage.setItem(`infucare_dev_${devId}_bed`, val);
+            localStorage.setItem(`infucare_${currentDept}_dev_${devId}_bed`, val);
         }
 
         function saveBedMappingTable(devId) {
             let val = document.getElementById(`bedname-tbl-${devId}`).value;
-            localStorage.setItem(`infucare_dev_${devId}_bed`, val);
-        }
-
-        function switchDept(deptName, btn) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            localStorage.setItem(`infucare_${currentDept}_dev_${devId}_bed`, val);
         }
 
         // MQTT Events
@@ -497,7 +501,7 @@
             badge.classList.remove('online');
         });
 
-        // Nhận dữ liệu thực tế từ ESP32 cập nhật vào Thiết bị 01
+        // Nhận dữ liệu thực tế từ ESP32 cập nhật vào Thiết bị 01 của khoa hiện tại
         client.on('message', (topic, payload) => {
             const message = payload.toString();
             const devId = "01"; 
@@ -544,8 +548,6 @@
                 }
             }
         });
-
-        renderApp();
     </script>
 </body>
 </html>
