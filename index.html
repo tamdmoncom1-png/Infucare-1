@@ -487,11 +487,12 @@
             localStorage.setItem(`infucare_${currentDept}_dev_${devId}_bed`, val);
         }
 
-        // MQTT Events
+      // MQTT Events
         client.on('connect', () => {
             const badge = document.getElementById('connection-status');
             badge.innerText = 'ONLINE';
             badge.classList.add('online');
+            // Lắng nghe toàn bộ topic của các thiết bị (dev01, dev02,...)
             client.subscribe('drip_monitor/#');
         });
 
@@ -501,50 +502,62 @@
             badge.classList.remove('online');
         });
 
-        // Nhận dữ liệu thực tế từ ESP32 cập nhật vào Thiết bị 01 của khoa hiện tại
+        // Nhận dữ liệu thực tế từ ESP32 phân tách theo từng device ID (ví dụ: drip_monitor/dev01/flow)
         client.on('message', (topic, payload) => {
             const message = payload.toString();
-            const devId = "01"; 
+            const parts = topic.split('/');
+            
+            // Cấu trúc topic: drip_monitor / [devId] / [metric]
+            if (parts.length >= 3) {
+                const devId = parts[1]; // Lấy mã thiết bị (vd: dev01)
+                const metric = parts[2]; // Lấy loại thông số (flow, infused, target, limit_ml, status)
+                
+                // Trích xuất số thứ tự thiết bị (ví dụ "dev01" -> "01")
+                let cardId = devId.replace('dev', '');
 
-            if (currentView === 'grid') {
-                if (topic === 'drip_monitor/flow') {
-                    let el = document.getElementById(`flow-${devId}`);
-                    if(el) el.innerText = message;
-                    let footer = document.getElementById(`status-${devId}`);
-                    if(footer) { footer.innerText = "Đang truyền bình thường"; footer.classList.add('active'); }
-                } else if (topic === 'drip_monitor/infused') {
-                    let el = document.getElementById(`infused-${devId}`);
-                    if(el) el.innerHTML = `${message} / <span id="limit-${devId}">390</span>`;
-                } else if (topic === 'drip_monitor/target') {
-                    let el = document.getElementById(`target-${devId}`);
-                    if(el) el.innerText = message;
-                } else if (topic === 'drip_monitor/limit_ml') {
-                    let el = document.getElementById(`limit-${devId}`);
-                    if(el) el.innerText = message;
-                } else if (topic === 'drip_monitor/status') {
-                    let footer = document.getElementById(`status-${devId}`);
-                    if(footer) {
-                        footer.innerText = message;
-                        if(message === 'NORMAL' || message === 'RUNNING_TEST') footer.classList.add('active');
-                        else footer.classList.remove('active');
+                if (currentView === 'grid') {
+                    if (metric === 'flow') {
+                        let el = document.getElementById(`flow-${cardId}`);
+                        if(el) el.innerText = message;
+                        let footer = document.getElementById(`status-${cardId}`);
+                        if(footer) { footer.innerText = "Đang truyền bình thường"; footer.classList.add('active'); }
+                    } else if (metric === 'infused') {
+                        let el = document.getElementById(`infused-${cardId}`);
+                        let limitEl = document.getElementById(`limit-${cardId}`);
+                        let limitVal = limitEl ? limitEl.innerText : "390";
+                        if(el) el.innerHTML = `${message} / <span id="limit-${cardId}">${limitVal}</span>`;
+                    } else if (metric === 'target') {
+                        let el = document.getElementById(`target-${cardId}`);
+                        if(el) el.innerText = message;
+                    } else if (metric === 'limit_ml') {
+                        let limitEl = document.getElementById(`limit-${cardId}`);
+                        if(limitEl) limitEl.innerText = message;
+                    } else if (metric === 'status') {
+                        let footer = document.getElementById(`status-${cardId}`);
+                        if(footer) {
+                            footer.innerText = message;
+                            if(message === 'NORMAL' || message === 'RUNNING_TEST') footer.classList.add('active');
+                            else footer.classList.remove('active');
+                        }
                     }
-                }
-            } else {
-                if (topic === 'drip_monitor/flow') {
-                    let el = document.getElementById(`flow-tbl-${devId}`);
-                    if(el) el.innerText = message;
-                } else if (topic === 'drip_monitor/infused') {
-                    let el = document.getElementById(`infused-tbl-${devId}`);
-                    if(el) el.innerText = message;
-                } else if (topic === 'drip_monitor/target') {
-                    let el = document.getElementById(`target-tbl-${devId}`);
-                    if(el) el.innerText = message;
-                } else if (topic === 'drip_monitor/limit_ml') {
-                    let el = document.getElementById(`limit-tbl-${devId}`);
-                    if(el) el.innerText = message;
-                } else if (topic === 'drip_monitor/status') {
-                    let el = document.getElementById(`status-tbl-${devId}`);
-                    if(el) el.innerText = message;
+                } else {
+                    // Dạng Bảng
+                    if (metric === 'flow') {
+                        let el = document.getElementById(`flow-tbl-${cardId}`);
+                        if(el) el.innerText = message;
+                    } else if (metric === 'infused') {
+                        let el = document.getElementById(`infused-tbl-${cardId}`);
+                        if(el) el.innerText = message;
+                    } else if (metric === 'target') {
+                        let el = document.getElementById(`target-tbl-${cardId}`);
+                        if(el) el.innerText = message;
+                    } else if (metric === 'limit_ml') {
+                        let el = document.getElementById(`limit-tbl-${cardId}`);
+                        if(el) el.innerText = message;
+                    } else if (metric === 'status') {
+                        let el = document.getElementById(`status-tbl-${cardId}`);
+                        if(el) el.innerText = message;
+                    }
                 }
             }
         });
