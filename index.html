@@ -325,16 +325,16 @@
         });
 
         function getDeviceCount() {
-            // Mặc định bằng 0, khi nào bấm "+ Thêm Thiết Bị" mới hiển thị
             return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
         }
 
         function renderApp() {
             let count = getDeviceCount();
             if (count === 0) {
+                let deptName = currentDept === 'KHOA_A' ? 'Khoa A' : (currentDept === 'KHOA_B' ? 'Khoa B' : 'Khoa C');
                 document.getElementById('main-content').innerHTML = `
                     <div style="text-align: center; padding: 50px; background: var(--card-bg); border-radius: 16px; border: 1.5px solid var(--card-border);">
-                        <h3 style="color: var(--text-muted); margin-bottom: 10px;">Chưa có thiết bị nào trong ${currentDept.replace('_', ' ')}</h3>
+                        <h3 style="color: var(--text-muted); margin-bottom: 10px;">Chưa có thiết bị nào trong ${deptName}</h3>
                         <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Bấm nút "+ Thêm Thiết Bị" phía trên để bắt đầu theo dõi giám sát.</p>
                         <button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto;">+ Thêm Thiết Bị</button>
                     </div>
@@ -350,9 +350,10 @@
             restoreTelemetryToUI();
         }
 
-        // 1. Render dạng Lưới theo Khoa
+        // 1. Render dạng Lưới theo Khoa (Tên dạng Thiết bị 01 - A)
         function renderGridView() {
             let count = getDeviceCount();
+            let deptLetter = currentDept.replace('KHOA_', ''); // Lấy chữ A, B hoặc C
             let html = '<div class="device-grid">';
             for (let i = 1; i <= count; i++) {
                 let devId = i < 10 ? `0${i}` : `${i}`;
@@ -361,7 +362,7 @@
                 html += `
                     <div class="device-card" id="device-${devId}">
                         <div class="device-header">
-                            <span class="device-title">Thiết bị ${devId}</span>
+                            <span class="device-title">Thiết bị ${devId} - ${deptLetter}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 11px; color: var(--neon-green); font-weight: bold;">📶 MQTT OK</span>
                                 <button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})">🗑️ Xóa</button>
@@ -384,7 +385,7 @@
                         <div class="metric-box">
                             <div class="metric-label">TARGET SPEED</div>
                             <div class="metric-value-row">
-                                <span class="metric-value target" id="target-${devId}">60</span>
+                                <span class="metric-value target" id="target-${devId}">0</span>
                                 <span class="metric-unit">gtt/min</span>
                             </div>
                         </div>
@@ -392,7 +393,7 @@
                         <div class="metric-box">
                             <div class="metric-label">TOTAL VOLUME (Infused / Limit)</div>
                             <div class="metric-value-row">
-                                <span class="metric-value" id="infused-${devId}" style="font-size: 18px;"><span id="infval-${devId}">0</span> / <span id="limit-${devId}">390</span></span>
+                                <span class="metric-value" id="infused-${devId}" style="font-size: 18px;"><span id="infval-${devId}">0</span> / <span id="limit-${devId}">0</span></span>
                                 <span class="metric-unit">ml</span>
                             </div>
                         </div>
@@ -407,9 +408,10 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // 2. Render dạng Bảng theo Khoa
+        // 2. Render dạng Bảng theo Khoa (Tên dạng Thiết bị 01 - A)
         function renderTableView() {
             let count = getDeviceCount();
+            let deptLetter = currentDept.replace('KHOA_', '');
             let html = `
                 <div class="device-table-wrapper">
                     <table>
@@ -432,11 +434,11 @@
 
                 html += `
                     <tr>
-                        <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${devId}</td>
+                        <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${devId} - ${deptLetter}</td>
                         <td><input type="text" class="bed-input" id="bedname-tbl-${devId}" value="${savedBed}" onchange="saveBedMappingTable('${devId}')"></td>
                         <td><span id="flow-tbl-${devId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
-                        <td><span id="target-tbl-${devId}" style="color: var(--primary-blue); font-weight: bold;">60</span> gtt/min</td>
-                        <td><span id="infval-tbl-${devId}">0</span> / <span id="limit-tbl-${devId}">390</span> ml</td>
+                        <td><span id="target-tbl-${devId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
+                        <td><span id="infval-tbl-${devId}">0</span> / <span id="limit-tbl-${devId}">0</span> ml</td>
                         <td id="status-tbl-${devId}" style="color: var(--text-muted); font-weight: 500;">Đang chờ...</td>
                         <td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})">🗑️ Xóa</button></td>
                     </tr>
