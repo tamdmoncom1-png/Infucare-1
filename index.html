@@ -19,9 +19,11 @@
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* Giúp hình nền sắc nét, hiển thị vừa vặn, không bị phóng to bể hình */
             background-image: url('bg.jpg');
+            background-size: 100% auto; /* Hoặc giữ nguyên tỉ lệ với background-size: contain / cover tùy chỉnh */
             background-size: cover;
-            background-position: center;
+            background-position: center top; /* Canh nét phần trên của ảnh banner */
             background-repeat: no-repeat;
             background-attachment: fixed;
             color: var(--text-main);
@@ -30,12 +32,12 @@
             min-height: 100vh;
         }
 
-        /* Lớp phủ mờ nhẹ giúp các thẻ card thông tin nổi bật, dễ đọc chữ */
+        /* Giảm độ mờ của lớp phủ xuống mức nhẹ nhất (từ 0.82 xuống 0.35) để ảnh nền sáng rõ, sắc nét tuyệt đối */
         body::before {
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(241, 245, 249, 0.82); 
+            background: rgba(255, 255, 255, 0.35); 
             z-index: -1;
         }
 
