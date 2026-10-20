@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --card-bg: rgba(255, 255, 255, 0.92); /* Nền thẻ trắng bán trong suốt để nổi bật trên ảnh nền */
+            --card-bg: rgba(255, 255, 255, 0.92);
             --card-border: rgba(226, 232, 240, 0.8);
             --primary-blue: #0284c7;
             --neon-green: #16a34a;
@@ -19,7 +19,6 @@
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            /* Lấy ảnh làm background toàn trang, phủ full màn hình, cố định không cuộn */
             background-image: url('bg.jpg');
             background-size: cover;
             background-position: center;
@@ -31,12 +30,12 @@
             min-height: 100vh;
         }
 
-        /* Lớp phủ mờ nhẹ giúp trang web sáng sủa và dễ nhìn chữ hơn trên nền ảnh */
+        /* Lớp phủ mờ nhẹ giúp các thẻ card thông tin nổi bật, dễ đọc chữ */
         body::before {
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(241, 245, 249, 0.75); 
+            background: rgba(241, 245, 249, 0.82); 
             z-index: -1;
         }
 
