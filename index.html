@@ -8,22 +8,20 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --card-bg: rgba(255, 255, 255, 0.92);
-            --card-border: rgba(226, 232, 240, 0.8);
+            --card-bg: rgba(255, 255, 255, 0.97); /* Nền trắng đục rõ nét */
+            --card-border: #cbd5e1;               /* Viền rõ ràng hơn */
             --primary-blue: #0284c7;
             --neon-green: #16a34a;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
+            --text-main: #0f172a;                 /* Chữ đậm tối đa để dễ đọc */
+            --text-muted: #475569;
             --accent-blue: #2563eb;
             --danger-red: #dc2626;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            /* Giúp hình nền sắc nét, hiển thị vừa vặn, không bị phóng to bể hình */
             background-image: url('bg.jpg');
-            background-size: 100% auto; /* Hoặc giữ nguyên tỉ lệ với background-size: contain / cover tùy chỉnh */
             background-size: cover;
-            background-position: center top; /* Canh nét phần trên của ảnh banner */
+            background-position: center top;
             background-repeat: no-repeat;
             background-attachment: fixed;
             color: var(--text-main);
@@ -32,12 +30,12 @@
             min-height: 100vh;
         }
 
-        /* Giảm độ mờ của lớp phủ xuống mức nhẹ nhất (từ 0.82 xuống 0.35) để ảnh nền sáng rõ, sắc nét tuyệt đối */
+        /* Lớp phủ mờ nhẹ phía sau giúp làm dịu ảnh nền để nổi bật nội dung */
         body::before {
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.35); 
+            background: rgba(248, 250, 252, 0.55); 
             z-index: -1;
         }
 
@@ -47,13 +45,13 @@
             justify-content: space-between;
             align-items: center;
             background: var(--card-bg);
-            padding: 14px 25px;
-            border-radius: 12px;
+            padding: 16px 25px;
+            border-radius: 14px;
             border: 1px solid var(--card-border);
             flex-wrap: wrap;
             gap: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+            backdrop-filter: blur(12px);
             margin-bottom: 25px;
         }
         .logo {
@@ -68,7 +66,7 @@
             gap: 10px;
         }
         .tab-btn {
-            background: #f8fafc;
+            background: #ffffff;
             border: 1px solid var(--card-border);
             color: var(--text-muted);
             padding: 8px 20px;
@@ -81,7 +79,7 @@
             background: var(--accent-blue);
             color: white;
             border-color: var(--accent-blue);
-            box-shadow: 0 0 10px rgba(37, 99, 235, 0.3);
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
         }
         /* Actions right */
         .actions-right {
@@ -91,7 +89,7 @@
             flex-wrap: wrap;
         }
         .btn-action {
-            background: #f8fafc;
+            background: #ffffff;
             border: 1px solid var(--card-border);
             color: var(--text-main);
             padding: 8px 14px;
@@ -143,16 +141,15 @@
         }
         .device-card {
             background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 14px;
-            padding: 16px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.06);
-            backdrop-filter: blur(8px);
+            border: 1.5px solid var(--card-border);
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             position: relative;
             transition: transform 0.2s, box-shadow 0.2s;
         }
         .device-card:hover {
-            box-shadow: 0 12px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.16);
             transform: translateY(-2px);
         }
         .device-header {
@@ -160,27 +157,27 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 12px;
-            border-bottom: 1px solid var(--card-border);
+            border-bottom: 1.5px solid var(--card-border);
             padding-bottom: 10px;
         }
         .device-title {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             color: var(--text-main);
         }
         .btn-delete {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: var(--danger-red);
             cursor: pointer;
-            font-size: 14px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            transition: color 0.2s;
+            font-size: 13px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: background 0.2s;
         }
         .btn-delete:hover {
-            color: var(--danger-red);
-            background: rgba(220, 38, 38, 0.08);
+            background: #fecaca;
         }
 
         /* Ô gán vị trí giường */
@@ -188,9 +185,9 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(248, 250, 252, 0.8);
-            padding: 6px 12px;
-            border-radius: 8px;
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 10px;
             border: 1px solid var(--card-border);
             margin-bottom: 12px;
         }
@@ -204,16 +201,16 @@
             border: 1px solid var(--card-border);
             color: var(--primary-blue);
             font-weight: bold;
-            padding: 4px 8px;
+            padding: 5px 10px;
             border-radius: 6px;
-            width: 90px;
+            width: 95px;
             text-align: center;
             font-size: 13px;
         }
 
         /* Các khối thông số */
         .metric-box {
-            background: rgba(248, 250, 252, 0.8);
+            background: #f8fafc;
             border-radius: 10px;
             padding: 10px 12px;
             margin-bottom: 8px;
@@ -232,7 +229,7 @@
             align-items: baseline;
         }
         .metric-value {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: bold;
             color: var(--neon-green);
         }
@@ -242,33 +239,33 @@
         .metric-unit {
             font-size: 12px;
             color: var(--text-muted);
+            font-weight: 600;
         }
         
         /* Trạng thái dưới cùng */
         .device-status-footer {
-            background: rgba(241, 245, 249, 0.9);
+            background: #e2e8f0;
             text-align: center;
-            padding: 8px;
+            padding: 9px;
             border-radius: 8px;
             font-size: 12px;
             color: var(--text-muted);
             margin-top: 10px;
-            font-weight: 500;
+            font-weight: bold;
         }
         .device-status-footer.active {
-            color: var(--neon-green);
-            background: #f0fdf4;
+            color: #15803d;
+            background: #dcfce7;
             border: 1px solid #bbf7d0;
         }
 
         /* 2. Dạng Bảng (Table View) */
         .device-table-wrapper {
             background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 14px;
+            border: 1.5px solid var(--card-border);
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.06);
-            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
         }
         table {
             width: 100%;
@@ -277,19 +274,20 @@
             font-size: 14px;
         }
         th, td {
-            padding: 14px 18px;
+            padding: 16px 20px;
             border-bottom: 1px solid var(--card-border);
             color: var(--text-main);
         }
         th {
-            background: rgba(248, 250, 252, 0.9);
+            background: #f1f5f9;
             color: var(--text-muted);
             font-size: 11px;
             letter-spacing: 0.5px;
             text-transform: uppercase;
+            font-weight: bold;
         }
         tr:hover {
-            background: rgba(248, 250, 252, 0.6);
+            background: rgba(241, 245, 249, 0.8);
         }
     </style>
 </head>
@@ -353,8 +351,8 @@
                         <div class="device-header">
                             <span class="device-title">Thiết bị ${devId}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 11px; color: var(--neon-green); font-weight: 600;">📶 MQTT OK</span>
-                                <button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})">🗑️</button>
+                                <span style="font-size: 11px; color: var(--neon-green); font-weight: bold;">📶 MQTT OK</span>
+                                <button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})">🗑️ Xóa</button>
                             </div>
                         </div>
                         
@@ -426,7 +424,7 @@
                         <td><span id="flow-tbl-${devId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="target-tbl-${devId}" style="color: var(--primary-blue); font-weight: bold;">60</span> gtt/min</td>
                         <td><span id="infused-tbl-${devId}">0</span> / <span id="limit-tbl-${devId}">390</span> ml</td>
-                        <td id="status-tbl-${devId}" style="color: var(--text-muted);">Đang chờ...</td>
+                        <td id="status-tbl-${devId}" style="color: var(--text-muted); font-weight: 500;">Đang chờ...</td>
                         <td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})">🗑️ Xóa</button></td>
                     </tr>
                 `;
