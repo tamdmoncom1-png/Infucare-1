@@ -282,7 +282,7 @@
         <div class="dept-tabs">
             <button class="tab-btn active" onclick="switchDept('KHOA_A', this)">KHOA A</button>
             <button class="tab-btn" onclick="switchDept('KHOA_B', this)">KHOA B</button>
-            <button class="tab-btn" onclick="switchDept('KHOA_C', this)">KHOA_C</button>
+            <button class="tab-btn" onclick="switchDept('KHOA_C', this)">KHOA C</button>
         </div>
 
         <div class="actions-right">
@@ -310,9 +310,7 @@
 
         const client = mqtt.connect(brokerUrl, options);
 
-        // Lưu trữ bộ nhớ đệm dữ liệu telemetry, mặc định khởi tạo giá trị 0
         let telemetryStore = {};
-
         let currentDept = localStorage.getItem('infucare_current_dept') || 'KHOA_A';
         let currentView = localStorage.getItem('infucare_view_mode') || 'grid';
 
@@ -327,10 +325,23 @@
         });
 
         function getDeviceCount() {
-            return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 4;
+            // Mặc định bằng 0, khi nào bấm "+ Thêm Thiết Bị" mới hiển thị
+            return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
         }
 
         function renderApp() {
+            let count = getDeviceCount();
+            if (count === 0) {
+                document.getElementById('main-content').innerHTML = `
+                    <div style="text-align: center; padding: 50px; background: var(--card-bg); border-radius: 16px; border: 1.5px solid var(--card-border);">
+                        <h3 style="color: var(--text-muted); margin-bottom: 10px;">Chưa có thiết bị nào trong ${currentDept.replace('_', ' ')}</h3>
+                        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Bấm nút "+ Thêm Thiết Bị" phía trên để bắt đầu theo dõi giám sát.</p>
+                        <button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto;">+ Thêm Thiết Bị</button>
+                    </div>
+                `;
+                return;
+            }
+
             if (currentView === 'grid') {
                 renderGridView();
             } else {
@@ -339,7 +350,7 @@
             restoreTelemetryToUI();
         }
 
-        // 1. Render dạng Lưới theo Khoa (Mặc định giá trị là 0)
+        // 1. Render dạng Lưới theo Khoa
         function renderGridView() {
             let count = getDeviceCount();
             let html = '<div class="device-grid">';
@@ -396,7 +407,7 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // 2. Render dạng Bảng theo Khoa (Mặc định giá trị là 0)
+        // 2. Render dạng Bảng theo Khoa
         function renderTableView() {
             let count = getDeviceCount();
             let html = `
@@ -455,10 +466,6 @@
 
         function removeDevice(index) {
             let count = getDeviceCount();
-            if (count <= 1) {
-                alert("Cần giữ lại ít nhất một thiết bị trong khoa!");
-                return;
-            }
             if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này khỏi ${currentDept.replace('_', ' ')} không?`)) {
                 for (let i = index; i < count; i++) {
                     let nextId = (i + 1) < 10 ? `0${i+1}` : `${i+1}`;
@@ -488,7 +495,6 @@
             localStorage.setItem(`infucare_${currentDept}_dev_${devId}_bed`, val);
         }
 
-        // Khôi phục dữ liệu từ bộ nhớ đệm (nếu có), nếu không có sẽ giữ mặc định là 0
         function restoreTelemetryToUI() {
             if (!telemetryStore[currentDept]) return;
             let count = getDeviceCount();
@@ -541,7 +547,6 @@
             }
         }
 
-        // MQTT Events
         client.on('connect', () => {
             const badge = document.getElementById('connection-status');
             badge.innerText = 'ONLINE';
@@ -555,7 +560,6 @@
             badge.classList.remove('online');
         });
 
-        // Nhận dữ liệu thực tế từ ESP32
         client.on('message', (topic, payload) => {
             const message = payload.toString();
             const parts = topic.split('/');
