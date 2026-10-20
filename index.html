@@ -8,16 +8,15 @@
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg-light: #f1f5f9;          /* Nền tổng thể sáng */
-            --card-bg: #ffffff;           /* Nền thẻ trắng sạch */
-            --card-border: #e2e8f0;       /* Viền xám nhạt */
-            --primary-blue: #0284c7;      /* Xanh dương chủ đạo InfuCare */
-            --primary-cyan: #0891b2;      /* Xanh cyan nhấn */
-            --neon-green: #16a34a;        /* Xanh lá trạng thái tốt */
-            --text-main: #1e293b;         /* Chữ tối chủ đạo */
-            --text-muted: #64748b;        /* Chữ mờ */
-            --accent-blue: #2563eb;       /* Xanh tab active */
-            --danger-red: #dc2626;        /* Đỏ cảnh báo/xóa */
+            --bg-light: #f1f5f9;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --card-border: #e2e8f0;
+            --primary-blue: #0284c7;
+            --neon-green: #16a34a;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent-blue: #2563eb;
+            --danger-red: #dc2626;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -26,7 +25,27 @@
             margin: 0;
             padding: 20px;
         }
-        /* Header Top */
+
+        /* Banner Header phong cách Y tế */
+        .hero-banner {
+            width: 100%;
+            height: 220px;
+            background-image: url('image_0ac257.jpg'); /* Sử dụng trực tiếp ảnh của bạn */
+            background-size: cover;
+            background-position: center;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, rgba(2, 132, 199, 0.2) 0%, rgba(0,0,0,0.05) 100%);
+        }
+
+        /* Header Control Bar */
         .header-bar {
             display: flex;
             justify-content: space-between;
@@ -38,6 +57,7 @@
             flex-wrap: wrap;
             gap: 15px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            backdrop-filter: blur(10px);
         }
         .logo {
             font-size: 24px;
@@ -118,7 +138,7 @@
             margin-top: 25px;
         }
 
-        /* 1. Dạng Lưới (Grid View) */
+        /* Dạng Lưới (Grid View) */
         .device-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -242,7 +262,7 @@
             border: 1px solid #bbf7d0;
         }
 
-        /* 2. Dạng Bảng (Table View) */
+        /* Dạng Bảng (Table View) */
         .device-table-wrapper {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
@@ -275,9 +295,14 @@
 </head>
 <body>
 
-    <!-- Header chính -->
+    <!-- Banner hình ảnh y tế thương hiệu InfuCare -->
+    <div class="hero-banner">
+        <div class="hero-overlay"></div>
+    </div>
+
+    <!-- Header điều khiển chính -->
     <div class="header-bar">
-        <div class="logo">InfuCare</div>
+        <div class="logo">InfuCare Dashboard</div>
         
         <div class="dept-tabs">
             <button class="tab-btn active" onclick="switchDept('KHOA A', this)">KHOA A</button>
@@ -419,14 +444,12 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // Thêm thiết bị mới
         function addNewDevice() {
             deviceCount++;
             localStorage.setItem('infucare_device_count', deviceCount);
             renderApp();
         }
 
-        // Xóa thiết bị bất kỳ
         function removeDevice(index) {
             if (deviceCount <= 1) {
                 alert("Cần giữ lại ít nhất một thiết bị trong danh sách!");
@@ -446,7 +469,6 @@
             }
         }
 
-        // Chuyển chế độ hiển thị Lưới / Bảng
         function setViewMode(mode) {
             currentView = mode;
             localStorage.setItem('infucare_view_mode', mode);
