@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>InfuCare v4.0 Pro - Web Dashboard</title>
+    <!-- Thư viện MQTT over WebSockets -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #334155; padding-bottom: 15px; }
+        h1 { color: #06b6d4; margin: 0; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .card h3 { margin: 0; color: #94a3b8; font-size: 1rem; }
+        .value { font-size: 2.5rem; font-weight: bold; color: #4ade80; margin: 15px 0; }
+        .unit { font-size: 0.9rem; color: #94a3b8; }
+        .status-box { grid-column: span 2; display: flex; justify-content: space-around; background: #1e293b; padding: 15px; border-radius: 12px; border: 1px solid #334155; }
+        .badge { padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; }
+        .badge.ok { background: #065f46; color: #34d399; }
+        .badge.err { background: #7f1d1d; color: #f87171; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>InfuCare v4.0 Pro</h1>
+            <p>Bệnh viện Đa khoa Cà Mau - Hệ thống giám sát truyền dịch IoT</p>
+            <span id="connection-status" class="badge err">Đang kết nối Broker...</span>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <h3>TỐC ĐỘ TRUYỀN THỰC TẾ</h3>
+                <div id="flow-val" class="value">0</div>
+                <div class="unit">gtt/min</div>
+            </div>
+            <div class="card">
+                <h3>THỂ TÍCH ĐÃ TRUYỀN</h3>
+                <div id="infused-val" class="value">0</div>
+                <div class="unit">mL</div>
+            </div>
+        </div>
+
+        <div class="status-box" style="margin-top: 20px;">
+            <div>Cảm biến giọt: <span id="st-drop" class="badge ok">OK</span></div>
+            <div>Cảm biến bọt khí: <span id="st-air" class="badge ok">OK</span></div>
+            <div>Khóa cơ học: <span id="st-clamp" class="badge ok">UNLOCKED</span></div>
+        </div>
+    </div>
+
+    <script>
+        // Cấu hình kết nối MQTT qua WebSockets (HiveMQ Cloud WSS port 8884)
+        const host = 'wss://dc96c9840eee44adbb0987edf4172106.s1.eu.hivemq.cloud:8884/mqtt';
+        const options = {
+            clientId: 'WebDashboard_' + Math.random().toString(16).substr(2, 8),
+            username: 'drip_monitor_user',
+            password: 'TamCaMau2026',
+            clean: true
+        };
+
+        const client = mqtt.connect(host, options);
+
+        client.on('connect', () => {
+            document.getElementById('connection-status').className = 'badge ok';
+            document.getElementById('connection-status').innerText = 'Connected to Broker (SSL)';
+            client.subscribe('drip_monitor/#');
+        });
+
+        client.on('error', (err) => {
+            console.error('MQTT Error: ', err);
+            document.getElementById('connection-status').className = 'badge err';
+            document.getElementById('connection-status').innerText = 'Kết nối thất bại!';
+        });
+
+        client.on('message', (topic, payload) => {
+            const msg = payload.toString();
+            if (topic === 'drip_monitor/flow') {
+                document.getElementById('flow-val').innerText = msg;
+            } else if (topic === 'drip_monitor/infused') {
+                document.getElementById('infused-val').innerText = msg;
+            }
+        });
+    </script>
+</body>
+</html>
