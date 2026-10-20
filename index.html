@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InfuCare - Quản Lý Giường Bệnh IoT</title>
+    <title>InfuCare - Quản Lý Thiết Bị Dự Án IoT</title>
     <!-- Thư viện MQTT.js qua CDN -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
@@ -62,29 +62,11 @@
             color: white;
             box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
         }
-        /* Action bar bên phải */
+        /* Actions right */
         .actions-right {
             display: flex;
             align-items: center;
             gap: 12px;
-        }
-        .btn-action {
-            background: #1e293b;
-            border: 1px solid var(--card-border);
-            color: var(--text-main);
-            padding: 8px 14px;
-            border-radius: 8px;
-            font-size: 13px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .btn-add {
-            background: #059669;
-            border: none;
-            color: white;
-            font-weight: bold;
         }
         .connection-badge {
             background: #1e293b;
@@ -99,14 +81,14 @@
             color: var(--neon-green);
         }
 
-        /* Grid Danh Sách Giường */
-        .bed-grid {
+        /* Grid Danh Sách Thiết Bị */
+        .device-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 20px;
             margin-top: 25px;
         }
-        .bed-card {
+        .device-card {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 14px;
@@ -114,32 +96,54 @@
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
             position: relative;
         }
-        .bed-header {
+        .device-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             border-bottom: 1px solid var(--card-border);
             padding-bottom: 10px;
         }
-        .bed-title {
-            font-size: 16px;
+        .device-title {
+            font-size: 15px;
             font-weight: bold;
             color: var(--text-main);
         }
-        .bed-icons {
+        
+        /* Khu vực nhập vị trí giường linh hoạt */
+        .bed-assign-row {
             display: flex;
-            gap: 8px;
-            font-size: 12px;
+            align-items: center;
+            gap: 6px;
+            background: #090e17;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid #1a233a;
+            margin-bottom: 12px;
+        }
+        .bed-assign-row label {
+            font-size: 11px;
             color: var(--text-muted);
+            font-weight: bold;
+        }
+        .bed-input {
+            background: #131d31;
+            border: 1px solid var(--card-border);
+            color: var(--primary-cyan);
+            font-weight: bold;
+            padding: 3px 6px;
+            border-radius: 5px;
+            width: 70px;
+            text-align: center;
+            font-size: 13px;
         }
 
-        /* Các khối thông số bên trong thẻ giường */
+        /* Các khối thông số */
         .metric-box {
             background: #090e17;
             border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
             border: 1px solid #1a233a;
         }
         .metric-label {
@@ -155,7 +159,7 @@
             align-items: baseline;
         }
         .metric-value {
-            font-size: 26px;
+            font-size: 24px;
             font-weight: bold;
             color: var(--neon-green);
         }
@@ -167,18 +171,18 @@
             color: var(--text-muted);
         }
         
-        /* Trạng thái dưới cùng của thẻ giường */
-        .bed-status-footer {
+        /* Trạng thái dưới cùng */
+        .device-status-footer {
             background: #1b263b;
             text-align: center;
             padding: 8px;
             border-radius: 8px;
             font-size: 12px;
             color: var(--text-muted);
-            margin-top: 12px;
+            margin-top: 10px;
             font-weight: 500;
         }
-        .bed-status-footer.active {
+        .device-status-footer.active {
             color: var(--neon-green);
             background: rgba(34, 197, 94, 0.1);
             border: 1px solid rgba(34, 197, 94, 0.2);
@@ -198,20 +202,17 @@
         </div>
 
         <div class="actions-right">
-            <button class="btn-action btn-add">+ Thêm Giường Mới</button>
-            <button class="btn-action">📦 Khối</button>
-            <button class="btn-action">📋 Bảng</button>
             <div id="connection-status" class="connection-badge">Đang kết nối...</div>
         </div>
     </div>
 
-    <!-- Lưới hiển thị các giường (Giường 01 đến Giường 10) -->
-    <div class="bed-grid" id="bed-container">
-        <!-- Các thẻ giường sẽ được sinh tự động bằng JavaScript bên dưới -->
+    <!-- Lưới hiển thị danh sách thiết bị -->
+    <div class="device-grid" id="device-container">
+        <!-- Render tự động qua JS -->
     </div>
 
     <script>
-        // Cấu hình kết nối MQTT Broker qua WebSockets (HiveMQ Cloud WSS port 8884)[cite: 7]
+        // Cấu hình MQTT qua WebSocket WSS port 8884
         const brokerUrl = 'wss://dc96c9840eee44adbb0987edf4172106.s1.eu.hivemq.cloud:8884/mqtt';
         const options = {
             clientId: 'WebDashboard_' + Math.random().toString(16).substr(2, 8),
@@ -222,73 +223,81 @@
 
         const client = mqtt.connect(brokerUrl, options);
 
-        // Khởi tạo danh sách 10 giường bệnh mẫu
-        const totalBeds = 10;
-        const bedContainer = document.getElementById('bed-container');
+        const totalDevices = 10;
+        const deviceContainer = document.getElementById('device-container');
 
-        function initBeds() {
+        function initDevices() {
             let html = '';
-            for (let i = 1; i <= totalBeds; i++) {
-                let bedId = i < 10 ? `0${i}` : `${i}`;
+            for (let i = 1; i <= totalDevices; i++) {
+                let devId = i < 10 ? `0${i}` : `${i}`;
+                // Đọc vị trí giường đã lưu trước đó nếu có
+                let savedBed = localStorage.getItem(`infucare_dev_${devId}_bed`) || `Giường ${devId}`;
+
                 html += `
-                    <div class="bed-card" id="bed-${bedId}">
-                        <div class="bed-header">
-                            <span class="bed-title">Giường ${bedId}</span>
-                            <span class="bed-icons">📶 --% 🔍 🗑️</span>
+                    <div class="device-card" id="device-${devId}">
+                        <div class="device-header">
+                            <span class="device-title">Thiết bị ${devId}</span>
+                            <span style="font-size: 11px; color: var(--text-muted);">📶 MQTT OK</span>
                         </div>
                         
+                        <!-- Ô nhập gán vị trí giường linh hoạt -->
+                        <div class="bed-assign-row">
+                            <label>Vị trí:</label>
+                            <input type="text" class="bed-input" id="bedname-${devId}" value="${savedBed}" onchange="saveBedMapping('${devId}')" placeholder="Nhập giường...">
+                        </div>
+
                         <div class="metric-box">
                             <div class="metric-label">ACTUAL SPEED</div>
                             <div class="metric-value-row">
-                                <span class="metric-value" id="flow-${bedId}">0</span>
+                                <span class="metric-value" id="flow-${devId}">0</span>
                                 <span class="metric-unit">gtt/min</span>
                             </div>
                         </div>
 
                         <div class="metric-box">
-                            <div class="metric-label">TARGET</div>
+                            <div class="metric-label">TARGET SPEED</div>
                             <div class="metric-value-row">
-                                <span class="metric-value target" id="target-${bedId}">60</span>
+                                <span class="metric-value target" id="target-${devId}">60</span>
                                 <span class="metric-unit">gtt/min</span>
                             </div>
                         </div>
 
                         <div class="metric-box">
-                            <div class="metric-label">TOTAL VOLUME</div>
+                            <div class="metric-label">TOTAL VOLUME (Infused / Limit)</div>
                             <div class="metric-value-row">
-                                <span class="metric-value" id="infused-${bedId}" style="font-size: 20px;">0 / <span id="limit-${bedId}">390</span></span>
+                                <span class="metric-value" id="infused-${devId}" style="font-size: 18px;">0 / <span id="limit-${devId}">390</span></span>
                                 <span class="metric-unit">ml</span>
                             </div>
                         </div>
 
-                        <div class="bed-status-footer" id="status-${bedId}">
+                        <div class="device-status-footer" id="status-${devId}">
                             Đang chờ tín hiệu...
                         </div>
                     </div>
                 `;
             }
-            bedContainer.innerHTML = html;
+            deviceContainer.innerHTML = html;
         }
 
-        initBeds();
+        initDevices();
 
-        // Chuyển tab khoa phòng
+        // Lưu vị trí giường vào bộ nhớ trình duyệt khi người dùng thay đổi
+        function saveBedMapping(devId) {
+            let val = document.getElementById(`bedname-${devId}`).value;
+            localStorage.setItem(`infucare_dev_${devId}_bed`, val);
+        }
+
         function switchDept(deptName, btn) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            console.log("Đã chuyển sang: " + deptName);
         }
 
-        // Xử lý sự kiện MQTT
+        // MQTT Events
         client.on('connect', () => {
             const badge = document.getElementById('connection-status');
             badge.innerText = 'ONLINE';
             badge.classList.add('online');
-            
-            // Đăng ký nhận dữ liệu topic chung hoặc theo giường (ví dụ: drip_monitor/#)
-            client.subscribe('drip_monitor/#', (err) => {
-                if (!err) console.log("Subscribed to drip_monitor/# successfully");
-            });
+            client.subscribe('drip_monitor/#');
         });
 
         client.on('offline', () => {
@@ -297,25 +306,24 @@
             badge.classList.remove('online');
         });
 
-        // Nhận gói tin từ ESP32 cập nhật cho Giường 01 (hoặc các giường khác tương ứng)
+        // Nhận dữ liệu từ thiết bị (Mặc định ánh xạ dữ liệu vào Thiết bị 01 để test thực tế)
         client.on('message', (topic, payload) => {
             const message = payload.toString();
-            // Mặc định tạm gán dữ liệu thực tế vào Giường 01 để test
-            const bedId = "01"; 
+            const devId = "01"; // Có thể mở rộng topic theo device ID sau này (ví dụ: drip_monitor/dev01/flow)
 
             if (topic === 'drip_monitor/flow') {
-                document.getElementById(`flow-${bedId}`).innerText = message;
-                let footer = document.getElementById(`status-${bedId}`);
+                document.getElementById(`flow-${devId}`).innerText = message;
+                let footer = document.getElementById(`status-${devId}`);
                 footer.innerText = "Đang truyền bình thường";
                 footer.classList.add('active');
             } else if (topic === 'drip_monitor/infused') {
-                document.getElementById(`infused-${bedId}`).innerHTML = `${message} / <span id="limit-${bedId}">390</span>`;
+                document.getElementById(`infused-${devId}`).innerHTML = `${message} / <span id="limit-${devId}">390</span>`;
             } else if (topic === 'drip_monitor/target') {
-                document.getElementById(`target-${bedId}`).innerText = message;
+                document.getElementById(`target-${devId}`).innerText = message;
             } else if (topic === 'drip_monitor/limit_ml') {
-                document.getElementById(`limit-${bedId}`).innerText = message;
+                document.getElementById(`limit-${devId}`).innerText = message;
             } else if (topic === 'drip_monitor/status') {
-                let footer = document.getElementById(`status-${bedId}`);
+                let footer = document.getElementById(`status-${devId}`);
                 footer.innerText = message;
                 if(message === 'NORMAL' || message === 'RUNNING_TEST') {
                     footer.classList.add('active');
