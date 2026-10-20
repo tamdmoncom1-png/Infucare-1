@@ -228,14 +228,15 @@
             font-weight: 600;
         }
         .device-status-footer {
-            background: #e2e8f0;
+            background: #fef2f2;
             text-align: center;
             padding: 9px;
             border-radius: 8px;
             font-size: 12px;
-            color: var(--text-muted);
+            color: var(--danger-red);
             margin-top: 10px;
             font-weight: bold;
+            border: 1px solid #fecaca;
         }
         .device-status-footer.active {
             color: #15803d;
@@ -327,12 +328,10 @@
             return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
         }
 
-        // Lấy số thứ tự thiết bị toàn cục (dev01, dev02, dev03...) cho khoa hiện tại
         function getGlobalDeviceIndex(deptKey, localIndex) {
             let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
             let key = `${deptKey}_${localIndex}`;
             if (!mapping[key]) {
-                // Tự động cấp phát số thứ tự thiết bị toàn viện tiếp theo (1, 2, 3...)
                 let allAssigned = Object.values(mapping);
                 let nextId = 1;
                 while (allAssigned.includes(nextId)) {
@@ -366,14 +365,14 @@
             restoreTelemetryToUI();
         }
 
-        // 1. Render dạng Lưới theo Khoa (Hiển thị đúng dạng Thiết bị 1 - A, Thiết bị 2 - A...)
+        // 1. Render dạng Lưới theo Khoa
         function renderGridView() {
             let count = getDeviceCount();
             let deptLetter = currentDept.replace('KHOA_', ''); 
             let html = '<div class="device-grid">';
             for (let i = 1; i <= count; i++) {
                 let globalId = getGlobalDeviceIndex(currentDept, i);
-                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`; // Dùng để nhận MQTT đúng thiết bị
+                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
                 let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
 
                 html += `
@@ -416,7 +415,7 @@
                         </div>
 
                         <div class="device-status-footer" id="status-${devTopicId}">
-                            Đang chờ tín hiệu...
+                            Chưa kết nối
                         </div>
                     </div>
                 `;
@@ -457,7 +456,7 @@
                         <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="infval-tbl-${devTopicId}">0</span> / <span id="limit-tbl-${devTopicId}">0</span> ml</td>
-                        <td id="status-tbl-${devTopicId}" style="color: var(--text-muted); font-weight: 500;">Đang chờ...</td>
+                        <td id="status-tbl-${devTopicId}" style="color: var(--danger-red); font-weight: bold;">Chưa kết nối</td>
                         <td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})">🗑️ Xóa</button></td>
                     </tr>
                 `;
@@ -487,7 +486,6 @@
         function removeDevice(index) {
             let count = getDeviceCount();
             if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này khỏi ${currentDept.replace('_', ' ')} không?`)) {
-                // Xóa mapping cũ
                 let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
                 delete mapping[`${currentDept}_${index}`];
                 localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
@@ -495,7 +493,6 @@
                 for (let i = index; i < count; i++) {
                     let nextBed = localStorage.getItem(`infucare_${currentDept}_dev_${i+1}_bed`) || `Giường ${i+1}`;
                     localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, nextBed);
-                    // Dịch chuyển mapping
                     let nextMapKey = `${currentDept}_${i+1}`;
                     let currMapKey = `${currentDept}_${i}`;
                     if (mapping[nextMapKey]) {
@@ -539,7 +536,7 @@
                         let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) el.innerText = data.flow;
                         let footer = document.getElementById(`status-${devTopicId}`);
-                        if(footer) { footer.innerText = data.statusText || "Đang truyền bình thường"; footer.classList.add('active'); }
+                        if(footer) { footer.innerText = "Đã kết nối"; footer.classList.add('active'); }
                     }
                     if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-${devTopicId}`);
@@ -557,6 +554,8 @@
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = data.flow;
+                        let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
+                        if(statTbl) { statTbl.innerText = "Đã kết nối"; statTbl.style.color = "var(--neon-green)"; }
                     }
                     if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
@@ -569,10 +568,6 @@
                     if (data.limit !== undefined) {
                         let el = document.getElementById(`limit-tbl-${devTopicId}`);
                         if(el) el.innerText = data.limit;
-                    }
-                    if (data.statusText !== undefined) {
-                        let el = document.getElementById(`status-tbl-${devTopicId}`);
-                        if(el) el.innerText = data.statusText;
                     }
                 }
             }
@@ -596,8 +591,8 @@
             const parts = topic.split('/');
             
             if (parts.length >= 3) {
-                const devTopicId = parts[1]; // vd: dev01, dev02
-                const metric = parts[2]; // flow, infused, target, limit_ml, status
+                const devTopicId = parts[1]; 
+                const metric = parts[2]; 
 
                 if (!telemetryStore[devTopicId]) telemetryStore[devTopicId] = {};
 
@@ -613,7 +608,7 @@
                         if(el) {
                             el.innerText = message;
                             let footer = document.getElementById(`status-${devTopicId}`);
-                            if(footer) { footer.innerText = "Đang truyền bình thường"; footer.classList.add('active'); }
+                            if(footer) { footer.innerText = "Đã kết nối"; footer.classList.add('active'); }
                         }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-${devTopicId}`);
@@ -627,15 +622,16 @@
                     } else if (metric === 'status') {
                         let footer = document.getElementById(`status-${devTopicId}`);
                         if(footer) {
-                            footer.innerText = message;
-                            if(message === 'NORMAL' || message === 'RUNNING_TEST') footer.classList.add('active');
-                            else footer.classList.remove('active');
+                            footer.innerText = message === 'NORMAL' ? "Đã kết nối" : message;
+                            footer.classList.add('active');
                         }
                     }
                 } else {
                     if (metric === 'flow') {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
+                        let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
+                        if(statTbl) { statTbl.innerText = "Đã kết nối"; statTbl.style.color = "var(--neon-green)"; }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
@@ -646,8 +642,11 @@
                         let limitEl = document.getElementById(`limit-tbl-${devTopicId}`);
                         if(limitEl) limitEl.innerText = message;
                     } else if (metric === 'status') {
-                        let el = document.getElementById(`status-tbl-${devTopicId}`);
-                        if(el) el.innerText = message;
+                        let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
+                        if(statTbl) {
+                            statTbl.innerText = message === 'NORMAL' ? "Đã kết nối" : message;
+                            statTbl.style.color = "var(--neon-green)";
+                        }
                     }
                 }
             }
