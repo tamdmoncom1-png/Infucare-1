@@ -58,13 +58,20 @@
         }
         .dept-tabs {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .tab-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
         }
         .tab-btn {
             background: #ffffff;
             border: 1px solid var(--card-border);
             color: var(--text-muted);
-            padding: 8px 20px;
+            padding: 8px 16px;
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
@@ -75,6 +82,40 @@
             color: white;
             border-color: var(--accent-blue);
             box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+        }
+        .btn-delete-dept {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #fee2e2;
+            color: var(--danger-red);
+            border: 1px solid #fecaca;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-delete-dept:hover {
+            background: #fecaca;
+        }
+        .btn-add-dept {
+            background: #f1f5f9;
+            border: 1.5px dashed var(--primary-blue);
+            color: var(--primary-blue);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-add-dept:hover {
+            background: #e0f2fe;
         }
         .actions-right {
             display: flex;
@@ -280,10 +321,9 @@
     <div class="header-bar">
         <div class="logo">InfuCare Dashboard</div>
         
-        <div class="dept-tabs">
-            <button class="tab-btn active" onclick="switchDept('KHOA_A', this)">KHOA A</button>
-            <button class="tab-btn" onclick="switchDept('KHOA_B', this)">KHOA B</button>
-            <button class="tab-btn" onclick="switchDept('KHOA_C', this)">KHOA C</button>
+        <!-- Các tab khoa phòng động -->
+        <div class="dept-tabs" id="dept-tabs-container">
+            <!-- Render qua JS -->
         </div>
 
         <div class="actions-right">
@@ -311,18 +351,85 @@
         const client = mqtt.connect(brokerUrl, options);
 
         let telemetryStore = {};
-        let currentDept = localStorage.getItem('infucare_current_dept') || 'KHOA_A';
+        
+        // Quản lý danh sách các khoa động
+        function getDepartments() {
+            let depts = JSON.parse(localStorage.getItem('infucare_departments'));
+            if (!depts || depts.length === 0) {
+                depts = [
+                    { key: 'KHOA_A', name: 'Khoa A' },
+                    { key: 'KHOA_B', name: 'Khoa B' },
+                    { key: 'KHOA_C', name: 'Khoa C' }
+                ];
+                localStorage.setItem('infucare_departments', JSON.stringify(depts));
+            }
+            return depts;
+        }
+
+        let currentDept = localStorage.getItem('infucare_current_dept');
+        let deptsList = getDepartments();
+        if (!currentDept || !deptsList.some(d => d.key === currentDept)) {
+            currentDept = deptsList[0].key;
+            localStorage.setItem('infucare_current_dept', currentDept);
+        }
+
         let currentView = localStorage.getItem('infucare_view_mode') || 'grid';
 
         document.addEventListener("DOMContentLoaded", () => {
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                if (btn.getAttribute('onclick').includes(currentDept)) {
-                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                }
-            });
+            renderDeptTabs();
             renderApp();
         });
+
+        // Render các nút Tab Khoa và nút Thêm Khoa
+        function renderDeptTabs() {
+            let depts = getDepartments();
+            let html = '';
+            depts.forEach(d => {
+                let isActive = d.key === currentDept ? 'active' : '';
+                // Cho phép xóa khoa nếu có nhiều hơn 1 khoa
+                let deleteBtn = depts.length > 1 ? `<span class="btn-delete-dept" title="Xóa khoa" onclick="removeDept('${d.key}', event)">✕</span>` : '';
+                html += `
+                    <div class="tab-wrapper">
+                        <button class="tab-btn ${isActive}" onclick="switchDept('${d.key}')">${d.name}</button>
+                        ${deleteBtn}
+                    </div>
+                `;
+            });
+            html += `<button class="btn-add-dept" onclick="addNewDept()">+ Thêm Khoa</button>`;
+            document.getElementById('dept-tabs-container').innerHTML = html;
+        }
+
+        function addNewDept() {
+            let deptName = prompt("Nhập tên khoa mới (ví dụ: Khoa Cấp Cứu, Khoa Nhi...):");
+            if (!deptName || deptName.trim() === "") return;
+            
+            let key = 'KHOA_' + Date.now();
+            let depts = getDepartments();
+            depts.push({ key: key, name: deptName.trim() });
+            localStorage.setItem('infucare_departments', JSON.stringify(depts));
+            
+            switchDept(key);
+        }
+
+        function removeDept(deptKey, event) {
+            event.stopPropagation();
+            let depts = getDepartments();
+            if (depts.length <= 1) {
+                alert("Cần duy trì ít nhất một khoa trong hệ thống!");
+                return;
+            }
+            if (confirm("Bạn có chắc chắn muốn xóa khoa này cùng toàn bộ thiết bị trong khoa không?")) {
+                let filtered = depts.filter(d => d.key !== deptKey);
+                localStorage.setItem('infucare_departments', JSON.stringify(filtered));
+                
+                if (currentDept === deptKey) {
+                    currentDept = filtered[0].key;
+                    localStorage.setItem('infucare_current_dept', currentDept);
+                }
+                renderDeptTabs();
+                renderApp();
+            }
+        }
 
         function getDeviceCount() {
             return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
@@ -343,10 +450,18 @@
             return mapping[key];
         }
 
+        function getCurrentDeptName() {
+            let depts = getDepartments();
+            let d = depts.find(x => x.key === currentDept);
+            return d ? d.name : 'Khoa';
+        }
+
         function renderApp() {
+            renderDeptTabs();
             let count = getDeviceCount();
+            let deptName = getCurrentDeptName();
+
             if (count === 0) {
-                let deptName = currentDept === 'KHOA_A' ? 'Khoa A' : (currentDept === 'KHOA_B' ? 'Khoa B' : 'Khoa C');
                 document.getElementById('main-content').innerHTML = `
                     <div style="text-align: center; padding: 50px; background: var(--card-bg); border-radius: 16px; border: 1.5px solid var(--card-border);">
                         <h3 style="color: var(--text-muted); margin-bottom: 10px;">Chưa có thiết bị nào trong ${deptName}</h3>
@@ -368,7 +483,7 @@
         // 1. Render dạng Lưới theo Khoa
         function renderGridView() {
             let count = getDeviceCount();
-            let deptLetter = currentDept.replace('KHOA_', ''); 
+            let deptName = getCurrentDeptName(); 
             let html = '<div class="device-grid">';
             for (let i = 1; i <= count; i++) {
                 let globalId = getGlobalDeviceIndex(currentDept, i);
@@ -378,7 +493,7 @@
                 html += `
                     <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <div class="device-header">
-                            <span class="device-title">Thiết bị ${globalId} - ${deptLetter}</span>
+                            <span class="device-title">Thiết bị ${globalId} - ${deptName}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 11px; color: var(--neon-green); font-weight: bold;">📶 MQTT OK</span>
                                 <button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})">🗑️ Xóa</button>
@@ -427,7 +542,7 @@
         // 2. Render dạng Bảng theo Khoa
         function renderTableView() {
             let count = getDeviceCount();
-            let deptLetter = currentDept.replace('KHOA_', '');
+            let deptName = getCurrentDeptName();
             let html = `
                 <div class="device-table-wrapper">
                     <table>
@@ -451,7 +566,7 @@
 
                 html += `
                     <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
-                        <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${globalId} - ${deptLetter}</td>
+                        <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${globalId} - ${deptName}</td>
                         <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')"></td>
                         <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
@@ -469,11 +584,9 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        function switchDept(deptKey, btn) {
+        function switchDept(deptKey) {
             currentDept = deptKey;
             localStorage.setItem('infucare_current_dept', deptKey);
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
             renderApp();
         }
 
@@ -485,7 +598,7 @@
 
         function removeDevice(index) {
             let count = getDeviceCount();
-            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này khỏi ${currentDept.replace('_', ' ')} không?`)) {
+            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này không?`)) {
                 let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
                 delete mapping[`${currentDept}_${index}`];
                 localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
