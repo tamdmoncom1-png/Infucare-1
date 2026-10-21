@@ -63,56 +63,64 @@
             align-items: center;
         }
         .tab-wrapper {
-            position: relative;
             display: inline-flex;
             align-items: center;
-        }
-        .tab-btn {
             background: #ffffff;
             border: 1px solid var(--card-border);
-            color: var(--text-muted);
-            padding: 8px 16px;
             border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
+            overflow: hidden;
             transition: all 0.2s;
         }
-        .tab-btn.active {
+        .tab-wrapper.active {
             background: var(--accent-blue);
-            color: white;
             border-color: var(--accent-blue);
             box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
         }
-        .btn-delete-dept {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            background: #fee2e2;
-            color: var(--danger-red);
-            border: 1px solid #fecaca;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            font-size: 10px;
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px 16px;
             font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .tab-wrapper.active .tab-btn {
+            color: white;
+        }
+        .tab-delete-icon {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 0 10px;
+            cursor: pointer;
+            font-size: 13px;
+            height: 100%;
             display: flex;
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: color 0.2s;
         }
-        .btn-delete-dept:hover {
-            background: #fecaca;
+        .tab-delete-icon:hover {
+            color: var(--danger-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .tab-wrapper.active .tab-delete-icon {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .tab-wrapper.active .tab-delete-icon:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.2);
         }
         .btn-add-dept {
             background: #f1f5f9;
             border: 1.5px dashed var(--primary-blue);
             color: var(--primary-blue);
-            padding: 8px 14px;
+            padding: 8px 16px;
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
+            display: none; /* Mặc định ẩn khi chưa đăng nhập admin */
         }
         .btn-add-dept:hover {
             background: #e0f2fe;
@@ -144,9 +152,18 @@
             background: #059669;
             border: none;
             color: white;
+            display: none; /* Mặc định ẩn */
         }
         .btn-add:hover {
             background: #047857;
+        }
+        .btn-admin {
+            background: #0f172a;
+            color: white;
+            border: none;
+        }
+        .btn-admin.logged-in {
+            background: #16a34a;
         }
         .connection-badge {
             background: #fef2f2;
@@ -206,6 +223,7 @@
             border-radius: 6px;
             font-weight: 600;
             transition: background 0.2s;
+            display: none; /* Mặc định ẩn */
         }
         .btn-delete:hover {
             background: #fecaca;
@@ -235,6 +253,7 @@
             width: 95px;
             text-align: center;
             font-size: 13px;
+            pointer-events: none; /* Mặc định khóa không cho chỉnh sửa */
         }
         .metric-box {
             background: #f8fafc;
@@ -321,15 +340,15 @@
     <div class="header-bar">
         <div class="logo">InfuCare Dashboard</div>
         
-        <!-- Các tab khoa phòng động -->
         <div class="dept-tabs" id="dept-tabs-container">
             <!-- Render qua JS -->
         </div>
 
         <div class="actions-right">
-            <button class="btn-action btn-add" onclick="addNewDevice()">+ Thêm Thiết Bị</button>
+            <button class="btn-action btn-add" id="btn-add-dev-main" onclick="addNewDevice()">+ Thêm Thiết Bị</button>
             <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
             <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
+            <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Đăng nhập Quản trị</button>
             <div id="connection-status" class="connection-badge">Đang kết nối...</div>
         </div>
     </div>
@@ -351,8 +370,10 @@
         const client = mqtt.connect(brokerUrl, options);
 
         let telemetryStore = {};
-        
-        // Quản lý danh sách các khoa động
+        // Trạng thái Quản trị (Mật khẩu mặc định là: tamcamau2026 - anh có thể đổi tùy ý bên dưới)
+        const ADMIN_PASSWORD = "tamcamau2026";
+        let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
+
         function getDepartments() {
             let depts = JSON.parse(localStorage.getItem('infucare_departments'));
             if (!depts || depts.length === 0) {
@@ -376,30 +397,71 @@
         let currentView = localStorage.getItem('infucare_view_mode') || 'grid';
 
         document.addEventListener("DOMContentLoaded", () => {
+            updateAdminUIState();
             renderDeptTabs();
             renderApp();
         });
 
-        // Render các nút Tab Khoa và nút Thêm Khoa
+        function toggleAdminAuth() {
+            if (isAdminLoggedIn) {
+                if (confirm("Bạn có muốn đăng xuất quyền quản trị không?")) {
+                    isAdminLoggedIn = false;
+                    sessionStorage.removeItem('infucare_admin_auth');
+                    updateAdminUIState();
+                    renderApp();
+                    alert("Đã đăng xuất quyền quản trị.");
+                }
+            } else {
+                let pass = prompt("Nhập mật khẩu quản trị hệ thống:");
+                if (pass === ADMIN_PASSWORD) {
+                    isAdminLoggedIn = true;
+                    sessionStorage.setItem('infucare_admin_auth', 'true');
+                    updateAdminUIState();
+                    renderApp();
+                    alert("Đăng nhập quản trị thành công! Bạn có quyền thêm/xóa thiết bị và chỉnh sửa vị trí.");
+                } else if (pass !== null) {
+                    alert("Mật khẩu không chính xác!");
+                }
+            }
+        }
+
+        function updateAdminUIState() {
+            const btnAuth = document.getElementById('btn-admin-auth');
+            const btnAddDev = document.getElementById('btn-add-dev-main');
+            
+            if (isAdminLoggedIn) {
+                btnAuth.innerText = "🔓 Đã mở khóa Quyền (Admin)";
+                btnAuth.classList.add('logged-in');
+                btnAddDev.style.display = "flex";
+            } else {
+                btnAuth.innerText = "🔒 Đăng nhập Quản trị";
+                btnAuth.classList.remove('logged-in');
+                btnAddDev.style.display = "none";
+            }
+        }
+
         function renderDeptTabs() {
             let depts = getDepartments();
             let html = '';
             depts.forEach(d => {
                 let isActive = d.key === currentDept ? 'active' : '';
-                // Cho phép xóa khoa nếu có nhiều hơn 1 khoa
-                let deleteBtn = depts.length > 1 ? `<span class="btn-delete-dept" title="Xóa khoa" onclick="removeDept('${d.key}', event)">✕</span>` : '';
+                // Chỉ hiện nút xóa khoa khi đã đăng nhập admin và có > 1 khoa
+                let deleteBtn = (isAdminLoggedIn && depts.length > 1) ? `<button class="tab-delete-icon" title="Xóa khoa" onclick="removeDept('${d.key}', event)">🗑</button>` : '';
                 html += `
-                    <div class="tab-wrapper">
-                        <button class="tab-btn ${isActive}" onclick="switchDept('${d.key}')">${d.name}</button>
+                    <div class="tab-wrapper ${isActive}">
+                        <button class="tab-btn" onclick="switchDept('${d.key}')">${d.name}</button>
                         ${deleteBtn}
                     </div>
                 `;
             });
-            html += `<button class="btn-add-dept" onclick="addNewDept()">+ Thêm Khoa</button>`;
+            if (isAdminLoggedIn) {
+                html += `<button class="btn-add-dept" style="display:inline-block;" onclick="addNewDept()">+ Thêm Khoa</button>`;
+            }
             document.getElementById('dept-tabs-container').innerHTML = html;
         }
 
         function addNewDept() {
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị trước!");
             let deptName = prompt("Nhập tên khoa mới (ví dụ: Khoa Cấp Cứu, Khoa Nhi...):");
             if (!deptName || deptName.trim() === "") return;
             
@@ -413,6 +475,7 @@
 
         function removeDept(deptKey, event) {
             event.stopPropagation();
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị trước!");
             let depts = getDepartments();
             if (depts.length <= 1) {
                 alert("Cần duy trì ít nhất một khoa trong hệ thống!");
@@ -462,11 +525,12 @@
             let deptName = getCurrentDeptName();
 
             if (count === 0) {
+                let addBtnHtml = isAdminLoggedIn ? `<button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto; display: flex;">+ Thêm Thiết Bị</button>` : `<p style="color: var(--text-muted); font-size: 13px;">Chế độ chỉ xem. Đăng nhập Quản trị để thêm thiết bị.</p>`;
                 document.getElementById('main-content').innerHTML = `
                     <div style="text-align: center; padding: 50px; background: var(--card-bg); border-radius: 16px; border: 1.5px solid var(--card-border);">
                         <h3 style="color: var(--text-muted); margin-bottom: 10px;">Chưa có thiết bị nào trong ${deptName}</h3>
-                        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Bấm nút "+ Thêm Thiết Bị" phía trên để bắt đầu theo dõi giám sát.</p>
-                        <button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto;">+ Thêm Thiết Bị</button>
+                        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Theo dõi trực tuyến các giường bệnh qua MQTT.</p>
+                        ${addBtnHtml}
                     </div>
                 `;
                 return;
@@ -480,7 +544,6 @@
             restoreTelemetryToUI();
         }
 
-        // 1. Render dạng Lưới theo Khoa
         function renderGridView() {
             let count = getDeviceCount();
             let deptName = getCurrentDeptName(); 
@@ -489,6 +552,9 @@
                 let globalId = getGlobalDeviceIndex(currentDept, i);
                 let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
                 let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
+                
+                let deleteBtnHtml = isAdminLoggedIn ? `<button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})" style="display: inline-block;">🗑️ Xóa</button>` : '';
+                let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
 
                 html += `
                     <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
@@ -496,13 +562,13 @@
                             <span class="device-title">Thiết bị ${globalId} - ${deptName}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 11px; color: var(--neon-green); font-weight: bold;">📶 MQTT OK</span>
-                                <button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})">🗑️ Xóa</button>
+                                ${deleteBtnHtml}
                             </div>
                         </div>
                         
                         <div class="bed-assign-row">
                             <label>VỊ TRÍ LẮP ĐẶT:</label>
-                            <input type="text" class="bed-input" id="bedname-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMapping('${i}')" placeholder="Nhập giường...">
+                            <input type="text" class="bed-input" id="bedname-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMapping('${i}')" placeholder="Nhập giường..." style="${inputStyle}">
                         </div>
 
                         <div class="metric-box">
@@ -539,7 +605,6 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
-        // 2. Render dạng Bảng theo Khoa
         function renderTableView() {
             let count = getDeviceCount();
             let deptName = getCurrentDeptName();
@@ -563,16 +628,19 @@
                 let globalId = getGlobalDeviceIndex(currentDept, i);
                 let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
                 let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
+                
+                let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
+                let deleteTd = isAdminLoggedIn ? `<td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})" style="display: inline-block;">🗑️ Xóa</button></td>` : `<td style="text-align: center; color: var(--text-muted); font-size: 12px;">Chỉ xem</td>`;
 
                 html += `
                     <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${globalId} - ${deptName}</td>
-                        <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')"></td>
+                        <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')" style="${inputStyle}"></td>
                         <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="infval-tbl-${devTopicId}">0</span> / <span id="limit-tbl-${devTopicId}">0</span> ml</td>
                         <td id="status-tbl-${devTopicId}" style="color: var(--danger-red); font-weight: bold;">Chưa kết nối</td>
-                        <td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})">🗑️ Xóa</button></td>
+                        ${deleteTd}
                     </tr>
                 `;
             }
@@ -591,12 +659,14 @@
         }
 
         function addNewDevice() {
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
             let count = getDeviceCount() + 1;
             localStorage.setItem(`infucare_device_count_${currentDept}`, count);
             renderApp();
         }
 
         function removeDevice(index) {
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
             let count = getDeviceCount();
             if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này không?`)) {
                 let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
@@ -627,11 +697,13 @@
         }
 
         function saveBedMapping(i) {
+            if (!isAdminLoggedIn) return;
             let val = document.getElementById(`bedname-${currentDept}-${i}`).value;
             localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
         }
 
         function saveBedMappingTable(i) {
+            if (!isAdminLoggedIn) return;
             let val = document.getElementById(`bedname-tbl-${currentDept}-${i}`).value;
             localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
         }
@@ -728,7 +800,7 @@
                         if(el) el.innerText = message;
                     } else if (metric === 'target') {
                         let el = document.getElementById(`target-${devTopicId}`);
-                        if(el) el.innerText = message;
+                        if(el) el.innerText = data.target || message;
                     } else if (metric === 'limit_ml') {
                         let limitEl = document.getElementById(`limit-${devTopicId}`);
                         if(limitEl) limitEl.innerText = message;
