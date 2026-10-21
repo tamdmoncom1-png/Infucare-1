@@ -358,7 +358,6 @@
 
     <!-- Header điều khiển chính chia 2 tầng gọn gàng -->
     <div class="header-bar">
-        <!-- Tầng trên: Logo và các nút công cụ / trạng thái hệ thống -->
         <div class="header-top">
             <div class="logo">InfuCare Dashboard</div>
             <div class="actions-right">
@@ -370,7 +369,6 @@
             </div>
         </div>
 
-        <!-- Tầng dưới: Danh sách các khoa phòng (có thể cuộn ngang nếu nhiều khoa) -->
         <div class="header-bottom">
             <div class="dept-tabs" id="dept-tabs-container">
                 <!-- Render qua JS -->
@@ -521,15 +519,15 @@
             return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
         }
 
+        // Đảm bảo số thứ tự thiết bị tăng tuần tự chuẩn xác (Max hiện tại + 1)
         function getGlobalDeviceIndex(deptKey, localIndex) {
             let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
             let key = `${deptKey}_${localIndex}`;
             if (!mapping[key]) {
-                let allAssigned = Object.values(mapping);
-                let nextId = 1;
-                while (allAssigned.includes(nextId)) {
-                    nextId++;
-                }
+                let allValues = Object.values(mapping);
+                let maxId = allValues.length > 0 ? Math.max(...allValues) : 0;
+                let nextId = maxId + 1;
+                
                 mapping[key] = nextId;
                 localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
             }
@@ -823,7 +821,7 @@
                         if(el) el.innerText = message;
                     } else if (metric === 'target') {
                         let el = document.getElementById(`target-${devTopicId}`);
-                        if(el) el.innerText = data.target || message;
+                        if(el) el.innerText = message;
                     } else if (metric === 'limit_ml') {
                         let limitEl = document.getElementById(`limit-${devTopicId}`);
                         if(limitEl) limitEl.innerText = message;
