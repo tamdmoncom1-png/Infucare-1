@@ -37,18 +37,25 @@
             z-index: -1;
         }
         .header-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             background: var(--card-bg);
             padding: 16px 25px;
             border-radius: 14px;
             border: 1px solid var(--card-border);
-            flex-wrap: wrap;
-            gap: 15px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.12);
             backdrop-filter: blur(12px);
             margin-bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 12px;
         }
         .logo {
             font-size: 24px;
@@ -56,11 +63,18 @@
             color: var(--primary-blue);
             letter-spacing: 0.5px;
         }
+        .header-bottom {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
         .dept-tabs {
             display: flex;
             gap: 8px;
-            flex-wrap: wrap;
             align-items: center;
+            flex-wrap: nowrap;
         }
         .tab-wrapper {
             display: inline-flex;
@@ -70,6 +84,7 @@
             border-radius: 8px;
             overflow: hidden;
             transition: all 0.2s;
+            flex-shrink: 0;
         }
         .tab-wrapper.active {
             background: var(--accent-blue);
@@ -84,6 +99,7 @@
             font-weight: bold;
             cursor: pointer;
             font-size: 14px;
+            white-space: nowrap;
         }
         .tab-wrapper.active .tab-btn {
             color: white;
@@ -120,7 +136,9 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
-            display: none; /* Mặc định ẩn khi chưa đăng nhập admin */
+            display: none;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .btn-add-dept:hover {
             background: #e0f2fe;
@@ -144,6 +162,7 @@
             gap: 6px;
             font-weight: 600;
             transition: all 0.2s;
+            white-space: nowrap;
         }
         .btn-action:hover {
             background: #f1f5f9;
@@ -152,7 +171,7 @@
             background: #059669;
             border: none;
             color: white;
-            display: none; /* Mặc định ẩn */
+            display: none;
         }
         .btn-add:hover {
             background: #047857;
@@ -173,6 +192,7 @@
             font-weight: bold;
             color: var(--danger-red);
             border: 1px solid #fecaca;
+            white-space: nowrap;
         }
         .connection-badge.online {
             color: var(--neon-green);
@@ -223,7 +243,7 @@
             border-radius: 6px;
             font-weight: 600;
             transition: background 0.2s;
-            display: none; /* Mặc định ẩn */
+            display: none;
         }
         .btn-delete:hover {
             background: #fecaca;
@@ -253,7 +273,7 @@
             width: 95px;
             text-align: center;
             font-size: 13px;
-            pointer-events: none; /* Mặc định khóa không cho chỉnh sửa */
+            pointer-events: none;
         }
         .metric-box {
             background: #f8fafc;
@@ -336,20 +356,25 @@
 </head>
 <body>
 
-    <!-- Header điều khiển chính -->
+    <!-- Header điều khiển chính chia 2 tầng gọn gàng -->
     <div class="header-bar">
-        <div class="logo">InfuCare Dashboard</div>
-        
-        <div class="dept-tabs" id="dept-tabs-container">
-            <!-- Render qua JS -->
+        <!-- Tầng trên: Logo và các nút công cụ / trạng thái hệ thống -->
+        <div class="header-top">
+            <div class="logo">InfuCare Dashboard</div>
+            <div class="actions-right">
+                <button class="btn-action btn-add" id="btn-add-dev-main" onclick="addNewDevice()">+ Thêm Thiết Bị</button>
+                <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
+                <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
+                <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Đăng nhập Quản trị</button>
+                <div id="connection-status" class="connection-badge">Đang kết nối...</div>
+            </div>
         </div>
 
-        <div class="actions-right">
-            <button class="btn-action btn-add" id="btn-add-dev-main" onclick="addNewDevice()">+ Thêm Thiết Bị</button>
-            <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
-            <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
-            <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Đăng nhập Quản trị</button>
-            <div id="connection-status" class="connection-badge">Đang kết nối...</div>
+        <!-- Tầng dưới: Danh sách các khoa phòng (có thể cuộn ngang nếu nhiều khoa) -->
+        <div class="header-bottom">
+            <div class="dept-tabs" id="dept-tabs-container">
+                <!-- Render qua JS -->
+            </div>
         </div>
     </div>
 
@@ -370,7 +395,6 @@
         const client = mqtt.connect(brokerUrl, options);
 
         let telemetryStore = {};
-        // Trạng thái Quản trị (Mật khẩu mặc định là: tamcamau2026 - anh có thể đổi tùy ý bên dưới)
         const ADMIN_PASSWORD = "tamcamau2026";
         let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
 
@@ -418,7 +442,7 @@
                     sessionStorage.setItem('infucare_admin_auth', 'true');
                     updateAdminUIState();
                     renderApp();
-                    alert("Đăng nhập quản trị thành công! Bạn có quyền thêm/xóa thiết bị và chỉnh sửa vị trí.");
+                    alert("Đăng nhập quản trị thành công!");
                 } else if (pass !== null) {
                     alert("Mật khẩu không chính xác!");
                 }
@@ -445,7 +469,6 @@
             let html = '';
             depts.forEach(d => {
                 let isActive = d.key === currentDept ? 'active' : '';
-                // Chỉ hiện nút xóa khoa khi đã đăng nhập admin và có > 1 khoa
                 let deleteBtn = (isAdminLoggedIn && depts.length > 1) ? `<button class="tab-delete-icon" title="Xóa khoa" onclick="removeDept('${d.key}', event)">🗑</button>` : '';
                 html += `
                     <div class="tab-wrapper ${isActive}">
