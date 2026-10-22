@@ -323,6 +323,17 @@
             background: #dcfce7;
             border: 1px solid #bbf7d0;
         }
+        .device-status-footer.warning {
+            color: #991b1b;
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            animation: pulse-alert 1.5s infinite;
+        }
+        @keyframes pulse-alert {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
         .device-table-wrapper {
             background: var(--card-bg);
             border: 1.5px solid var(--card-border);
@@ -356,7 +367,7 @@
 </head>
 <body>
 
-    <!-- Header điều khiển chính chia 2 tầng gọn gàng -->
+    <!-- Header điều khiển chính -->
     <div class="header-bar">
         <div class="header-top">
             <div class="logo">InfuCare Dashboard</div>
@@ -519,7 +530,6 @@
             return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
         }
 
-        // Đảm bảo số thứ tự thiết bị tăng tuần tự chuẩn xác (Max hiện tại + 1)
         function getGlobalDeviceIndex(deptKey, localIndex) {
             let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
             let key = `${deptKey}_${localIndex}`;
@@ -563,6 +573,16 @@
                 renderTableView();
             }
             restoreTelemetryToUI();
+        }
+
+        function formatStatusText(statusStr) {
+            if (!statusStr || statusStr === "NORMAL") return "Đã kết nối (Bình thường)";
+            if (statusStr === "DEVIATED") return "⚠️ CẢNH BÁO: Lệch tốc độ!";
+            if (statusStr === "STOPPED") return "⚠️ CẢNH BÁO: Dừng chảy (0 gtt)!";
+            if (statusStr === "COMPLETED") return "✅ Đã hoàn thành đủ thể tích!";
+            if (statusStr === "EXCEEDED") return "⚠️ CẢNH BÁO: Vượt mức (>200)!";
+            if (statusStr === "BELOW") return "⚠️ CẢNH BÁO: Dưới mức (<10)!";
+            return statusStr;
         }
 
         function renderGridView() {
@@ -741,8 +761,6 @@
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) el.innerText = data.flow;
-                        let footer = document.getElementById(`status-${devTopicId}`);
-                        if(footer) { footer.innerText = "Đã kết nối"; footer.classList.add('active'); }
                     }
                     if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-${devTopicId}`);
@@ -756,12 +774,23 @@
                         let el = document.getElementById(`limit-${devTopicId}`);
                         if(el) el.innerText = data.limit;
                     }
+                    if (data.statusText !== undefined) {
+                        let footer = document.getElementById(`status-${devTopicId}`);
+                        if(footer) {
+                            footer.innerText = formatStatusText(data.statusText);
+                            if (data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
+                                footer.classList.add('active');
+                                footer.classList.remove('warning');
+                            } else {
+                                footer.classList.remove('active');
+                                footer.classList.add('warning');
+                            }
+                        }
+                    }
                 } else {
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = data.flow;
-                        let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
-                        if(statTbl) { statTbl.innerText = "Đã kết nối"; statTbl.style.color = "var(--neon-green)"; }
                     }
                     if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
@@ -774,6 +803,17 @@
                     if (data.limit !== undefined) {
                         let el = document.getElementById(`limit-tbl-${devTopicId}`);
                         if(el) el.innerText = data.limit;
+                    }
+                    if (data.statusText !== undefined) {
+                        let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
+                        if(statTbl) {
+                            statTbl.innerText = formatStatusText(data.statusText);
+                            if (data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
+                                statTbl.style.color = "var(--neon-green)";
+                            } else {
+                                statTbl.style.color = "var(--danger-red)";
+                            }
+                        }
                     }
                 }
             }
@@ -811,11 +851,7 @@
                 if (currentView === 'grid') {
                     if (metric === 'flow') {
                         let el = document.getElementById(`flow-${devTopicId}`);
-                        if(el) {
-                            el.innerText = message;
-                            let footer = document.getElementById(`status-${devTopicId}`);
-                            if(footer) { footer.innerText = "Đã kết nối"; footer.classList.add('active'); }
-                        }
+                        if(el) el.innerText = message;
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-${devTopicId}`);
                         if(el) el.innerText = message;
@@ -828,16 +864,20 @@
                     } else if (metric === 'status') {
                         let footer = document.getElementById(`status-${devTopicId}`);
                         if(footer) {
-                            footer.innerText = message === 'NORMAL' ? "Đã kết nối" : message;
-                            footer.classList.add('active');
+                            footer.innerText = formatStatusText(message);
+                            if (message === "NORMAL" || message === "COMPLETED") {
+                                footer.classList.add('active');
+                                footer.classList.remove('warning');
+                            } else {
+                                footer.classList.remove('active');
+                                footer.classList.add('warning');
+                            }
                         }
                     }
                 } else {
                     if (metric === 'flow') {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
-                        let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
-                        if(statTbl) { statTbl.innerText = "Đã kết nối"; statTbl.style.color = "var(--neon-green)"; }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
@@ -850,8 +890,12 @@
                     } else if (metric === 'status') {
                         let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
                         if(statTbl) {
-                            statTbl.innerText = message === 'NORMAL' ? "Đã kết nối" : message;
-                            statTbl.style.color = "var(--neon-green)";
+                            statTbl.innerText = formatStatusText(message);
+                            if (message === "NORMAL" || message === "COMPLETED") {
+                                statTbl.style.color = "var(--neon-green)";
+                            } else {
+                                statTbl.style.color = "var(--danger-red)";
+                            }
                         }
                     }
                 }
