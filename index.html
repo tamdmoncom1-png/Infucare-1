@@ -367,7 +367,6 @@
 </head>
 <body>
 
-    <!-- Header điều khiển chính -->
     <div class="header-bar">
         <div class="header-top">
             <div class="logo">InfuCare Dashboard</div>
@@ -381,16 +380,11 @@
         </div>
 
         <div class="header-bottom">
-            <div class="dept-tabs" id="dept-tabs-container">
-                <!-- Render qua JS -->
-            </div>
+            <div class="dept-tabs" id="dept-tabs-container"></div>
         </div>
     </div>
 
-    <!-- Khu vực hiển thị nội dung động -->
-    <div class="content-container" id="main-content">
-        <!-- Render tự động qua JS -->
-    </div>
+    <div class="content-container" id="main-content"></div>
 
     <script>
         const brokerUrl = 'wss://dc96c9840eee44adbb0987edf4172106.s1.eu.hivemq.cloud:8884/mqtt';
@@ -582,6 +576,7 @@
             if (statusStr === "COMPLETED") return "✅ Đã hoàn thành đủ thể tích!";
             if (statusStr === "EXCEEDED") return "⚠️ CẢNH BÁO: Vượt mức (>200)!";
             if (statusStr === "BELOW") return "⚠️ CẢNH BÁO: Dưới mức (<10)!";
+            if (statusStr === "DISCONNECTED") return "Chưa kết nối";
             return statusStr;
         }
 
