@@ -570,7 +570,8 @@
         }
 
         function formatStatusText(statusStr) {
-            if (!statusStr || statusStr === "NORMAL") return "Đã kết nối (Bình thường)";
+            if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
+            if (statusStr === "NORMAL") return "Đang hoạt động";
             if (statusStr === "DEVIATED") return "⚠️ CẢNH BÁO: Lệch tốc độ!";
             if (statusStr === "STOPPED") return "⚠️ CẢNH BÁO: Dừng chảy (0 gtt)!";
             if (statusStr === "COMPLETED") return "✅ Đã hoàn thành đủ thể tích!";
@@ -773,8 +774,11 @@
                         let footer = document.getElementById(`status-${devTopicId}`);
                         if(footer) {
                             footer.innerText = formatStatusText(data.statusText);
-                            if (data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
+                            if (data.statusText === "CONNECTED" || data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
                                 footer.classList.add('active');
+                                footer.classList.remove('warning');
+                            } else if (data.statusText === "DISCONNECTED") {
+                                footer.classList.remove('active');
                                 footer.classList.remove('warning');
                             } else {
                                 footer.classList.remove('active');
@@ -803,8 +807,10 @@
                         let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
                         if(statTbl) {
                             statTbl.innerText = formatStatusText(data.statusText);
-                            if (data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
+                            if (data.statusText === "CONNECTED" || data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
                                 statTbl.style.color = "var(--neon-green)";
+                            } else if (data.statusText === "DISCONNECTED") {
+                                statTbl.style.color = "var(--danger-red)";
                             } else {
                                 statTbl.style.color = "var(--danger-red)";
                             }
@@ -860,8 +866,11 @@
                         let footer = document.getElementById(`status-${devTopicId}`);
                         if(footer) {
                             footer.innerText = formatStatusText(message);
-                            if (message === "NORMAL" || message === "COMPLETED") {
+                            if (message === "CONNECTED" || message === "NORMAL" || message === "COMPLETED") {
                                 footer.classList.add('active');
+                                footer.classList.remove('warning');
+                            } else if (message === "DISCONNECTED") {
+                                footer.classList.remove('active');
                                 footer.classList.remove('warning');
                             } else {
                                 footer.classList.remove('active');
@@ -886,8 +895,10 @@
                         let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
                         if(statTbl) {
                             statTbl.innerText = formatStatusText(message);
-                            if (message === "NORMAL" || message === "COMPLETED") {
+                            if (message === "CONNECTED" || message === "NORMAL" || message === "COMPLETED") {
                                 statTbl.style.color = "var(--neon-green)";
+                            } else if (message === "DISCONNECTED") {
+                                statTbl.style.color = "var(--danger-red)";
                             } else {
                                 statTbl.style.color = "var(--danger-red)";
                             }
