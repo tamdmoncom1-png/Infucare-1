@@ -299,6 +299,9 @@
             font-weight: bold;
             color: var(--neon-green);
         }
+        .metric-value.danger {
+            color: var(--danger-red) !important;
+        }
         .metric-value.target {
             color: var(--primary-blue);
         }
@@ -755,6 +758,9 @@
                 let data = telemetryStore[devTopicId];
                 if (!data) continue;
 
+                let currentStatus = data.statusText || "CONNECTED";
+                let isWarning = (currentStatus !== "CONNECTED" && currentStatus !== "NORMAL" && currentStatus !== "COMPLETED");
+
                 if (currentView === 'grid') {
                     if (data.battery !== undefined) {
                         let el = document.getElementById(`battery-${devTopicId}`);
@@ -762,7 +768,11 @@
                     }
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-${devTopicId}`);
-                        if(el) el.innerText = data.flow;
+                        if(el) {
+                            el.innerText = data.flow;
+                            if (isWarning) el.classList.add('danger');
+                            else el.classList.remove('danger');
+                        }
                     }
                     if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-${devTopicId}`);
@@ -799,7 +809,10 @@
                     }
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
-                        if(el) el.innerText = data.flow;
+                        if(el) {
+                            el.innerText = data.flow;
+                            el.style.color = isWarning ? "var(--danger-red)" : "var(--neon-green)";
+                        }
                     }
                     if (data.infused !== undefined) {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
@@ -819,8 +832,6 @@
                             statTbl.innerText = formatStatusText(data.statusText);
                             if (data.statusText === "CONNECTED" || data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
                                 statTbl.style.color = "var(--neon-green)";
-                            } else if (data.statusText === "DISCONNECTED") {
-                                statTbl.style.color = "var(--danger-red)";
                             } else {
                                 statTbl.style.color = "var(--danger-red)";
                             }
@@ -860,13 +871,20 @@
                 if (metric === 'status') telemetryStore[devTopicId].statusText = message;
                 if (metric === 'battery') telemetryStore[devTopicId].battery = message;
 
+                let currentStatus = telemetryStore[devTopicId].statusText || "CONNECTED";
+                let isWarning = (currentStatus !== "CONNECTED" && currentStatus !== "NORMAL" && currentStatus !== "COMPLETED");
+
                 if (currentView === 'grid') {
                     if (metric === 'battery') {
                         let el = document.getElementById(`battery-${devTopicId}`);
                         if(el) el.innerText = `🔋 Pin: ${message}%`;
                     } else if (metric === 'flow') {
                         let el = document.getElementById(`flow-${devTopicId}`);
-                        if(el) el.innerText = message;
+                        if(el) {
+                            el.innerText = message;
+                            if (isWarning) el.classList.add('danger');
+                            else el.classList.remove('danger');
+                        }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-${devTopicId}`);
                         if(el) el.innerText = message;
@@ -878,6 +896,16 @@
                         if(limitEl) limitEl.innerText = message;
                     } else if (metric === 'status') {
                         let footer = document.getElementById(`status-${devTopicId}`);
+                        let flowEl = document.getElementById(`flow-${devTopicId}`);
+                        
+                        if(flowEl) {
+                            if (message !== "CONNECTED" && message !== "NORMAL" && message !== "COMPLETED") {
+                                flowEl.classList.add('danger');
+                            } else {
+                                flowEl.classList.remove('danger');
+                            }
+                        }
+
                         if(footer) {
                             footer.innerText = formatStatusText(message);
                             if (message === "CONNECTED" || message === "NORMAL" || message === "COMPLETED") {
@@ -898,7 +926,10 @@
                         if(el) el.innerText = `${message}%`;
                     } else if (metric === 'flow') {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
-                        if(el) el.innerText = message;
+                        if(el) {
+                            el.innerText = message;
+                            el.style.color = isWarning ? "var(--danger-red)" : "var(--neon-green)";
+                        }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
@@ -910,12 +941,16 @@
                         if(limitEl) limitEl.innerText = message;
                     } else if (metric === 'status') {
                         let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
+                        let flowTblEl = document.getElementById(`flow-tbl-${devTopicId}`);
+                        
+                        if(flowTblEl) {
+                            flowTblEl.style.color = isWarning ? "var(--danger-red)" : "var(--neon-green)";
+                        }
+
                         if(statTbl) {
                             statTbl.innerText = formatStatusText(message);
                             if (message === "CONNECTED" || message === "NORMAL" || message === "COMPLETED") {
                                 statTbl.style.color = "var(--neon-green)";
-                            } else if (message === "DISCONNECTED") {
-                                statTbl.style.color = "var(--danger-red)";
                             } else {
                                 statTbl.style.color = "var(--danger-red)";
                             }
