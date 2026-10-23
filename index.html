@@ -598,7 +598,7 @@
                         <div class="device-header">
                             <span class="device-title">Thiết bị ${globalId} - ${deptName}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 11px; color: var(--neon-green); font-weight: bold;">📶 MQTT OK</span>
+                                <span style="font-size: 11px; color: var(--primary-blue); font-weight: bold; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;" id="battery-${devTopicId}">🔋 Pin: --%</span>
                                 ${deleteBtnHtml}
                             </div>
                         </div>
@@ -652,6 +652,7 @@
                             <tr>
                                 <th>Thiết bị</th>
                                 <th>Vị trí lắp đặt</th>
+                                <th>Pin</th>
                                 <th>Tốc độ thực tế</th>
                                 <th>Tốc độ cài đặt (Target)</th>
                                 <th>Đã truyền / Giới hạn (mL)</th>
@@ -673,6 +674,7 @@
                     <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${globalId} - ${deptName}</td>
                         <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')" style="${inputStyle}"></td>
+                        <td><span id="battery-tbl-${devTopicId}" style="font-weight: bold; color: var(--primary-blue);">--%</span></td>
                         <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="infval-tbl-${devTopicId}">0</span> / <span id="limit-tbl-${devTopicId}">0</span> ml</td>
@@ -754,6 +756,10 @@
                 if (!data) continue;
 
                 if (currentView === 'grid') {
+                    if (data.battery !== undefined) {
+                        let el = document.getElementById(`battery-${devTopicId}`);
+                        if(el) el.innerText = `🔋 Pin: ${data.battery}%`;
+                    }
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) el.innerText = data.flow;
@@ -787,6 +793,10 @@
                         }
                     }
                 } else {
+                    if (data.battery !== undefined) {
+                        let el = document.getElementById(`battery-tbl-${devTopicId}`);
+                        if(el) el.innerText = `${data.battery}%`;
+                    }
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = data.flow;
@@ -848,9 +858,13 @@
                 if (metric === 'target') telemetryStore[devTopicId].target = message;
                 if (metric === 'limit_ml') telemetryStore[devTopicId].limit = message;
                 if (metric === 'status') telemetryStore[devTopicId].statusText = message;
+                if (metric === 'battery') telemetryStore[devTopicId].battery = message;
 
                 if (currentView === 'grid') {
-                    if (metric === 'flow') {
+                    if (metric === 'battery') {
+                        let el = document.getElementById(`battery-${devTopicId}`);
+                        if(el) el.innerText = `🔋 Pin: ${message}%`;
+                    } else if (metric === 'flow') {
                         let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'infused') {
@@ -879,7 +893,10 @@
                         }
                     }
                 } else {
-                    if (metric === 'flow') {
+                    if (metric === 'battery') {
+                        let el = document.getElementById(`battery-tbl-${devTopicId}`);
+                        if(el) el.innerText = `${message}%`;
+                    } else if (metric === 'flow') {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
                     } else if (metric === 'infused') {
