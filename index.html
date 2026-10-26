@@ -342,9 +342,25 @@
             border: 1px solid #fde68a;
             animation: pulse-alert 1.5s infinite;
         }
+        /* Hiệu ứng chớp đỏ cho pin yếu <= 10% */
+        .battery-badge {
+            font-size: 11px;
+            color: var(--primary-blue);
+            font-weight: bold;
+            background: #e0f2fe;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .battery-badge-low {
+            color: var(--danger-red) !important;
+            background: #fee2e2 !important;
+            border: 1px solid #fecaca;
+            animation: pulse-alert 1s infinite;
+        }
         @keyframes pulse-alert {
             0% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.4; }
             100% { opacity: 1; }
         }
         .device-table-wrapper {
@@ -582,7 +598,6 @@
             restoreTelemetryToUI();
         }
 
-        // Định dạng văn bản trạng thái khớp hoàn toàn với bảng cảnh báo
         function formatStatusText(statusStr) {
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
             if (statusStr === "NORMAL") return "Đang hoạt động";
@@ -611,7 +626,7 @@
                         <div class="device-header">
                             <span class="device-title">Thiết bị ${globalId} - ${deptName}</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 11px; color: var(--primary-blue); font-weight: bold; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;" id="battery-${devTopicId}">🔋 Pin: --%</span>
+                                <span class="battery-badge" id="battery-${devTopicId}">🔋 Pin: --%</span>
                                 ${deleteBtnHtml}
                             </div>
                         </div>
@@ -687,7 +702,7 @@
                     <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <td style="font-weight: bold; color: var(--primary-blue);">Thiết bị ${globalId} - ${deptName}</td>
                         <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')" style="${inputStyle}"></td>
-                        <td><span id="battery-tbl-${devTopicId}" style="font-weight: bold; color: var(--primary-blue);">--%</span></td>
+                        <td><span id="battery-tbl-${devTopicId}" class="battery-badge" style="background:none; padding:0;">--%</span></td>
                         <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">0</span> gtt/min</td>
                         <td><span id="infval-tbl-${devTopicId}">0</span> / <span id="limit-tbl-${devTopicId}">0</span> ml</td>
@@ -760,6 +775,32 @@
             localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
         }
 
+        function updateBatteryUI(devTopicId, val) {
+            let pct = parseInt(val);
+            let isLow = (pct <= 10);
+
+            // Cập nhật chế độ Lưới
+            let elGrid = document.getElementById(`battery-${devTopicId}`);
+            if(elGrid) {
+                elGrid.innerText = `🔋 Pin: ${val}%`;
+                if(isLow) elGrid.classList.add('battery-badge-low');
+                else elGrid.classList.remove('battery-badge-low');
+            }
+
+            // Cập nhật chế độ Bảng
+            let elTbl = document.getElementById(`battery-tbl-${devTopicId}`);
+            if(elTbl) {
+                elTbl.innerText = `${val}%`;
+                if(isLow) {
+                    elTbl.classList.add('battery-badge-low');
+                    elTbl.style.padding = "2px 6px";
+                } else {
+                    elTbl.classList.remove('battery-badge-low');
+                    elTbl.style.padding = "0";
+                }
+            }
+        }
+
         function restoreTelemetryToUI() {
             let count = getDeviceCount();
             for (let i = 1; i <= count; i++) {
@@ -774,8 +815,7 @@
 
                 if (currentView === 'grid') {
                     if (data.battery !== undefined) {
-                        let el = document.getElementById(`battery-${devTopicId}`);
-                        if(el) el.innerText = `🔋 Pin: ${data.battery}%`;
+                        updateBatteryUI(devTopicId, data.battery);
                     }
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-${devTopicId}`);
@@ -814,8 +854,7 @@
                     }
                 } else {
                     if (data.battery !== undefined) {
-                        let el = document.getElementById(`battery-tbl-${devTopicId}`);
-                        if(el) el.innerText = `${data.battery}%`;
+                        updateBatteryUI(devTopicId, data.battery);
                     }
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
@@ -891,8 +930,7 @@
 
                 if (currentView === 'grid') {
                     if (metric === 'battery') {
-                        let el = document.getElementById(`battery-${devTopicId}`);
-                        if(el) el.innerText = `🔋 Pin: ${message}%`;
+                        updateBatteryUI(devTopicId, message);
                     } else if (metric === 'flow') {
                         let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) {
@@ -937,8 +975,7 @@
                     }
                 } else {
                     if (metric === 'battery') {
-                        let el = document.getElementById(`battery-tbl-${devTopicId}`);
-                        if(el) el.innerText = `${message}%`;
+                        updateBatteryUI(devTopicId, message);
                     } else if (metric === 'flow') {
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) {
