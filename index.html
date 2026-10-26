@@ -16,6 +16,7 @@
             --text-muted: #475569;
             --accent-blue: #2563eb;
             --danger-red: #dc2626;
+            --warning-amber: #d97706;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -302,6 +303,9 @@
         .metric-value.danger {
             color: var(--danger-red) !important;
         }
+        .metric-value.warning-amber {
+            color: var(--warning-amber) !important;
+        }
         .metric-value.target {
             color: var(--primary-blue);
         }
@@ -330,6 +334,12 @@
             color: #991b1b;
             background: #fee2e2;
             border: 1px solid #fecaca;
+            animation: pulse-alert 1.5s infinite;
+        }
+        .device-status-footer.warning-mild {
+            color: #b45309;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
             animation: pulse-alert 1.5s infinite;
         }
         @keyframes pulse-alert {
@@ -572,7 +582,7 @@
             restoreTelemetryToUI();
         }
 
-        // Cập nhật văn bản trạng thái khớp hoàn toàn với bảng
+        // Định dạng văn bản trạng thái khớp hoàn toàn với bảng cảnh báo
         function formatStatusText(statusStr) {
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
             if (statusStr === "NORMAL") return "Đang hoạt động";
@@ -759,7 +769,8 @@
                 if (!data) continue;
 
                 let currentStatus = data.statusText || "CONNECTED";
-                let isWarning = (currentStatus !== "CONNECTED" && currentStatus !== "NORMAL" && currentStatus !== "COMPLETED");
+                let isDanger = (currentStatus === "EXCEEDED" || currentStatus === "STOPPED");
+                let isBelow = (currentStatus === "BELOW");
 
                 if (currentView === 'grid') {
                     if (data.battery !== undefined) {
@@ -770,8 +781,9 @@
                         let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) {
                             el.innerText = data.flow;
-                            if (isWarning) el.classList.add('danger');
-                            else el.classList.remove('danger');
+                            el.classList.remove('danger', 'warning-amber');
+                            if (isDanger) el.classList.add('danger');
+                            else if (isBelow) el.classList.add('warning-amber');
                         }
                     }
                     if (data.infused !== undefined) {
@@ -790,14 +802,12 @@
                         let footer = document.getElementById(`status-${devTopicId}`);
                         if(footer) {
                             footer.innerText = formatStatusText(data.statusText);
-                            if (data.statusText === "CONNECTED" || data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
+                            footer.className = "device-status-footer";
+                            if (currentStatus === "CONNECTED" || currentStatus === "NORMAL" || currentStatus === "COMPLETED") {
                                 footer.classList.add('active');
-                                footer.classList.remove('warning');
-                            } else if (data.statusText === "DISCONNECTED") {
-                                footer.classList.remove('active');
-                                footer.classList.remove('warning');
-                            } else {
-                                footer.classList.remove('active');
+                            } else if (currentStatus === "BELOW") {
+                                footer.classList.add('warning-mild');
+                            } else if (currentStatus === "EXCEEDED" || currentStatus === "STOPPED") {
                                 footer.classList.add('warning');
                             }
                         }
@@ -811,7 +821,9 @@
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) {
                             el.innerText = data.flow;
-                            el.style.color = isWarning ? "var(--danger-red)" : "var(--neon-green)";
+                            if (isDanger) el.style.color = "var(--danger-red)";
+                            else if (isBelow) el.style.color = "var(--warning-amber)";
+                            else el.style.color = "var(--neon-green)";
                         }
                     }
                     if (data.infused !== undefined) {
@@ -830,8 +842,10 @@
                         let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
                         if(statTbl) {
                             statTbl.innerText = formatStatusText(data.statusText);
-                            if (data.statusText === "CONNECTED" || data.statusText === "NORMAL" || data.statusText === "COMPLETED") {
+                            if (currentStatus === "CONNECTED" || currentStatus === "NORMAL" || currentStatus === "COMPLETED") {
                                 statTbl.style.color = "var(--neon-green)";
+                            } else if (currentStatus === "BELOW") {
+                                statTbl.style.color = "var(--warning-amber)";
                             } else {
                                 statTbl.style.color = "var(--danger-red)";
                             }
@@ -872,7 +886,8 @@
                 if (metric === 'battery') telemetryStore[devTopicId].battery = message;
 
                 let currentStatus = telemetryStore[devTopicId].statusText || "CONNECTED";
-                let isWarning = (currentStatus !== "CONNECTED" && currentStatus !== "NORMAL" && currentStatus !== "COMPLETED");
+                let isDanger = (currentStatus === "EXCEEDED" || currentStatus === "STOPPED");
+                let isBelow = (currentStatus === "BELOW");
 
                 if (currentView === 'grid') {
                     if (metric === 'battery') {
@@ -882,8 +897,9 @@
                         let el = document.getElementById(`flow-${devTopicId}`);
                         if(el) {
                             el.innerText = message;
-                            if (isWarning) el.classList.add('danger');
-                            else el.classList.remove('danger');
+                            el.classList.remove('danger', 'warning-amber');
+                            if (isDanger) el.classList.add('danger');
+                            else if (isBelow) el.classList.add('warning-amber');
                         }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-${devTopicId}`);
@@ -899,23 +915,22 @@
                         let flowEl = document.getElementById(`flow-${devTopicId}`);
                         
                         if(flowEl) {
-                            if (message !== "CONNECTED" && message !== "NORMAL" && message !== "COMPLETED") {
+                            flowEl.classList.remove('danger', 'warning-amber');
+                            if (message === "EXCEEDED" || message === "STOPPED") {
                                 flowEl.classList.add('danger');
-                            } else {
-                                flowEl.classList.remove('danger');
+                            } else if (message === "BELOW") {
+                                flowEl.classList.add('warning-amber');
                             }
                         }
 
                         if(footer) {
                             footer.innerText = formatStatusText(message);
+                            footer.className = "device-status-footer";
                             if (message === "CONNECTED" || message === "NORMAL" || message === "COMPLETED") {
                                 footer.classList.add('active');
-                                footer.classList.remove('warning');
-                            } else if (message === "DISCONNECTED") {
-                                footer.classList.remove('active');
-                                footer.classList.remove('warning');
-                            } else {
-                                footer.classList.remove('active');
+                            } else if (message === "BELOW") {
+                                footer.classList.add('warning-mild');
+                            } else if (message === "EXCEEDED" || message === "STOPPED") {
                                 footer.classList.add('warning');
                             }
                         }
@@ -928,7 +943,9 @@
                         let el = document.getElementById(`flow-tbl-${devTopicId}`);
                         if(el) {
                             el.innerText = message;
-                            el.style.color = isWarning ? "var(--danger-red)" : "var(--neon-green)";
+                            if (isDanger) el.style.color = "var(--danger-red)";
+                            else if (isBelow) el.style.color = "var(--warning-amber)";
+                            else el.style.color = "var(--neon-green)";
                         }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
@@ -944,13 +961,17 @@
                         let flowTblEl = document.getElementById(`flow-tbl-${devTopicId}`);
                         
                         if(flowTblEl) {
-                            flowTblEl.style.color = isWarning ? "var(--danger-red)" : "var(--neon-green)";
+                            if (isDanger) flowTblEl.style.color = "var(--danger-red)";
+                            else if (isBelow) flowTblEl.style.color = "var(--warning-amber)";
+                            else flowTblEl.style.color = "var(--neon-green)";
                         }
 
                         if(statTbl) {
                             statTbl.innerText = formatStatusText(message);
                             if (message === "CONNECTED" || message === "NORMAL" || message === "COMPLETED") {
                                 statTbl.style.color = "var(--neon-green)";
+                            } else if (message === "BELOW") {
+                                statTbl.style.color = "var(--warning-amber)";
                             } else {
                                 statTbl.style.color = "var(--danger-red)";
                             }
