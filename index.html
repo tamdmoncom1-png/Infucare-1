@@ -572,14 +572,14 @@
             restoreTelemetryToUI();
         }
 
+        // Cập nhật văn bản trạng thái khớp hoàn toàn với bảng
         function formatStatusText(statusStr) {
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
             if (statusStr === "NORMAL") return "Đang hoạt động";
-            if (statusStr === "DEVIATED") return "⚠️ CẢNH BÁO: Lệch tốc độ!";
-            if (statusStr === "STOPPED") return "⚠️ CẢNH BÁO: Dừng chảy (0 gtt)!";
+            if (statusStr === "EXCEEDED") return "⚠️ CẢNH BÁO: Tốc độ quá cao!";
+            if (statusStr === "STOPPED") return "⚠️ CẢNH BÁO: Dừng chảy, tắt dịch truyền!";
             if (statusStr === "COMPLETED") return "✅ Đã hoàn thành đủ thể tích!";
-            if (statusStr === "EXCEEDED") return "⚠️ CẢNH BÁO: Vượt mức (>200)!";
-            if (statusStr === "BELOW") return "⚠️ CẢNH BÁO: Dưới mức (<10)!";
+            if (statusStr === "BELOW") return "⚠️ CẢNH BÁO: Tốc độ thấp";
             if (statusStr === "DISCONNECTED") return "Chưa kết nối";
             return statusStr;
         }
