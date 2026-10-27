@@ -189,7 +189,7 @@
             gap: 15px;
         }
 
-        /* Giao diện CHIA ĐÔI 2 CỘT (Compact View) - Hiển thị 8-10 thiết bị cùng lúc trên di động */
+        /* Giao diện Mobile (Chia 2 cột tối ưu) */
         .device-grid.compact-view {
             display: grid;
             grid-template-columns: repeat(2, 1fr) !important;
@@ -205,7 +205,6 @@
             position: relative;
         }
 
-        /* Tối ưu riêng nội dung bên trong thẻ Chia Đôi (Compact) */
         .device-grid.compact-view .device-card {
             padding: 6px 8px;
             border-radius: 8px;
@@ -450,7 +449,7 @@
                 <button class="btn-action btn-add" id="btn-add-dev-main" onclick="addNewDevice()">+ Thêm</button>
                 <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
                 <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
-                <button class="btn-action" onclick="setViewMode('compact')" id="btn-compact">📱 Chia 2 Cột</button>
+                <button class="btn-action" onclick="setViewMode('compact')" id="btn-compact">📱 Mobile</button>
                 <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Admin</button>
                 <div id="connection-status" class="connection-badge">Đang kết nối...</div>
             </div>
@@ -1079,7 +1078,7 @@
                         }
                     } else if (metric === 'infused') {
                         let el = document.getElementById(`infval-tbl-${devTopicId}`);
-                        if(el) el.innerText = data.infused;
+                        if(el) el.innerText = message;
                     } else if (metric === 'target') {
                         let el = document.getElementById(`target-tbl-${devTopicId}`);
                         if(el) el.innerText = message;
