@@ -542,18 +542,9 @@
             return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
         }
 
+        // Tối ưu hàm gán ID thiết bị: Bắt đầu từ 1 độc lập theo từng Khoa
         function getGlobalDeviceIndex(deptKey, localIndex) {
-            let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
-            let key = `${deptKey}_${localIndex}`;
-            if (!mapping[key]) {
-                let allValues = Object.values(mapping);
-                let maxId = allValues.length > 0 ? Math.max(...allValues) : 0;
-                let nextId = maxId + 1;
-                
-                mapping[key] = nextId;
-                localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
-            }
-            return mapping[key];
+            return localIndex; // Số thứ tự thiết bị hiển thị sẽ chạy từ 1, 2, 3... tương ứng với từng khoa riêng biệt
         }
 
         function getCurrentDeptName() {
@@ -725,22 +716,11 @@
             if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
             let count = getDeviceCount();
             if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này không?`)) {
-                let mapping = JSON.parse(localStorage.getItem('infucare_device_mapping') || '{}');
-                delete mapping[`${currentDept}_${index}`];
-                localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
-
                 for (let i = index; i < count; i++) {
                     let nextBed = localStorage.getItem(`infucare_${currentDept}_dev_${i+1}_bed`) || `Giường ${i+1}`;
                     localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, nextBed);
-                    let nextMapKey = `${currentDept}_${i+1}`;
-                    let currMapKey = `${currentDept}_${i}`;
-                    if (mapping[nextMapKey]) {
-                        mapping[currMapKey] = mapping[nextMapKey];
-                        delete mapping[nextMapKey];
-                    }
                 }
                 localStorage.removeItem(`infucare_${currentDept}_dev_${count}_bed`);
-                localStorage.setItem('infucare_device_mapping', JSON.stringify(mapping));
                 localStorage.setItem(`infucare_device_count_${currentDept}`, count - 1);
                 renderApp();
             }
@@ -950,7 +930,6 @@
                 if (metric === 'limit_ml') telemetryStore[devTopicId].limit = message;
                 if (metric === 'status') {
                     telemetryStore[devTopicId].statusText = message;
-                    // Nếu thiết bị gửi trạng thái DISCONNECTED, reset ngay lập tức
                     if (message === "DISCONNECTED") {
                         handleDeviceOfflineState(devTopicId);
                         return;
