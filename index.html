@@ -162,6 +162,12 @@
             gap: 5px;
             font-weight: 600;
             white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .btn-action.active-mode {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
         }
         .btn-add {
             background: #059669;
@@ -195,11 +201,22 @@
         .content-container {
             margin-top: 15px;
         }
+        
+        /* Chế độ Lưới bình thường (nhiều cột trên PC) */
         .device-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 18px;
         }
+
+        /* Chế độ Xem Mobile (ép thành 1 cột dọc duy nhất, thu gọn) */
+        .device-grid.mobile-view {
+            max-width: 450px;
+            margin: 0 auto;
+            grid-template-columns: 1fr !important;
+            gap: 12px;
+        }
+
         .device-card {
             background: var(--card-bg);
             border: 1.5px solid var(--card-border);
@@ -374,36 +391,6 @@
             text-transform: uppercase;
             font-weight: bold;
         }
-
-        /* TỐI ƯU RIÊNG CHO ĐIỆN THOẠI DI ĐỘNG (DƯỚI 600px) */
-        @media (max-width: 600px) {
-            body {
-                padding: 8px;
-            }
-            .header-bar {
-                padding: 10px;
-                margin-bottom: 12px;
-            }
-            .logo {
-                font-size: 18px;
-            }
-            /* Ép giao diện Lưới thành 1 cột duy nhất tràn màn hình, không bị tràn 2 thiết bị ngang */
-            .device-grid {
-                grid-template-columns: 1fr;
-                gap: 12px;
-            }
-            .device-card {
-                padding: 12px;
-                border-radius: 12px;
-            }
-            .metric-value {
-                font-size: 22px;
-            }
-            .btn-action {
-                padding: 6px 9px;
-                font-size: 11px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -415,6 +402,7 @@
                 <button class="btn-action btn-add" id="btn-add-dev-main" onclick="addNewDevice()">+ Thêm</button>
                 <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
                 <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
+                <button class="btn-action" onclick="setViewMode('mobile')" id="btn-mobile">📱 Di động</button>
                 <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Admin</button>
                 <div id="connection-status" class="connection-badge">Đang kết nối...</div>
             </div>
@@ -575,8 +563,23 @@
             return d ? d.name : 'Khoa';
         }
 
+        function updateViewButtonsActiveState() {
+            document.getElementById('btn-grid').classList.remove('active-mode');
+            document.getElementById('btn-table').classList.remove('active-mode');
+            document.getElementById('btn-mobile').classList.remove('active-mode');
+
+            if (currentView === 'grid') {
+                document.getElementById('btn-grid').classList.add('active-mode');
+            } else if (currentView === 'table') {
+                document.getElementById('btn-table').classList.add('active-mode');
+            } else if (currentView === 'mobile') {
+                document.getElementById('btn-mobile').classList.add('active-mode');
+            }
+        }
+
         function renderApp() {
             renderDeptTabs();
+            updateViewButtonsActiveState();
             let count = getDeviceCount();
             let deptName = getCurrentDeptName();
 
@@ -592,7 +595,7 @@
                 return;
             }
 
-            if (currentView === 'grid') {
+            if (currentView === 'grid' || currentView === 'mobile') {
                 renderGridView();
             } else {
                 renderTableView();
@@ -614,7 +617,9 @@
         function renderGridView() {
             let count = getDeviceCount();
             let deptName = getCurrentDeptName(); 
-            let html = '<div class="device-grid">';
+            let gridClass = (currentView === 'mobile') ? 'device-grid mobile-view' : 'device-grid';
+            
+            let html = `<div class="${gridClass}">`;
             for (let i = 1; i <= count; i++) {
                 let globalId = getGlobalDeviceIndex(currentDept, i);
                 let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
@@ -807,7 +812,7 @@
         function handleDeviceOfflineState(devTopicId) {
             updateBatteryUI(devTopicId, null, true);
 
-            if (currentView === 'grid') {
+            if (currentView === 'grid' || currentView === 'mobile') {
                 let footer = document.getElementById(`status-${devTopicId}`);
                 if(footer) {
                     footer.innerText = "Chưa kết nối (Offline)";
@@ -846,7 +851,7 @@
                 let isDanger = (currentStatus === "EXCEEDED" || currentStatus === "STOPPED");
                 let isBelow = (currentStatus === "BELOW");
 
-                if (currentView === 'grid') {
+                if (currentView === 'grid' || currentView === 'mobile') {
                     if (data.battery !== undefined) updateBatteryUI(devTopicId, data.battery, false);
                     if (data.flow !== undefined) {
                         let el = document.getElementById(`flow-${devTopicId}`);
@@ -968,7 +973,7 @@
                 let isDanger = (currentStatus === "EXCEEDED" || currentStatus === "STOPPED");
                 let isBelow = (currentStatus === "BELOW");
 
-                if (currentView === 'grid') {
+                if (currentView === 'grid' || currentView === 'mobile') {
                     if (metric === 'battery') {
                         updateBatteryUI(devTopicId, message, false);
                     } else if (metric === 'flow') {
@@ -1043,7 +1048,7 @@
                             else flowTblEl.style.color = "var(--neon-green)";
                         }
 
-                        if(statT_bl = document.getElementById(`status-tbl-${devTopicId}`)) {
+                        if(statTbl) {
                             statTbl.innerText = formatStatusText(message);
                             if (message === "CONNECTED" || message === "NORMAL" || message === "COMPLETED") {
                                 statTbl.style.color = "var(--neon-green)";
