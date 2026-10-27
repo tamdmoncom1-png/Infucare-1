@@ -58,11 +58,48 @@
             border-bottom: 1px solid var(--card-border);
             padding-bottom: 6px;
         }
-        .logo {
-            font-size: 16px;
-            font-weight: bold;
-            color: var(--primary-blue);
+
+        /* --- THIẾT KẾ LOGO INFUCARE CHUẨN MẪU --- */
+        .infucare-logo {
+            display: inline-flex;
+            flex-direction: column;
+            text-decoration: none;
+            cursor: pointer;
         }
+        .logo-text-wrapper {
+            font-size: 24px;
+            font-weight: 900;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #0099ff;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: baseline;
+            position: relative;
+        }
+        .logo-u-container {
+            position: relative;
+            display: inline-block;
+        }
+        /* Biểu tượng giọt nước tinh tế lồng trong chữ u */
+        .logo-drop-icon {
+            position: absolute;
+            bottom: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 11px;
+            background: #0099ff;
+            clip-path: polygon(50% 0%, 100% 60%, 80% 100%, 20% 100%, 0% 60%);
+        }
+        /* Đường cong mỉm cười phía dưới chữ InfuCare */
+        .logo-smile-curve {
+            width: 100%;
+            height: 4px;
+            border-bottom: 3px solid #0099ff;
+            border-radius: 0 0 50% 50%;
+            margin-top: -2px;
+        }
+
         .header-bottom {
             display: flex;
             align-items: center;
@@ -182,14 +219,12 @@
             margin-top: 8px;
         }
         
-        /* Giao diện Lưới chuẩn PC */
         .device-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 15px;
         }
 
-        /* Giao diện Mobile (Chia 2 cột tối ưu) */
         .device-grid.compact-view {
             display: grid;
             grid-template-columns: repeat(2, 1fr) !important;
@@ -444,7 +479,19 @@
 
     <div class="header-bar">
         <div class="header-top">
-            <div class="logo">InfuCare Dashboard</div>
+            <!-- LOGO INFUCARE CHUẨN MẪU & LINK TRỎ VỀ infucare.vn -->
+            <a href="https://infucare.vn" target="_blank" class="infucare-logo" title="Truy cập InfuCare.vn">
+                <div class="logo-text-wrapper">
+                    <span>Inf</span>
+                    <span class="logo-u-container">
+                        u
+                        <div class="logo-drop-icon"></div>
+                    </span>
+                    <span>Care</span>
+                </div>
+                <div class="logo-smile-curve"></div>
+            </a>
+            
             <div class="actions-right">
                 <button class="btn-action btn-add" id="btn-add-dev-main" onclick="addNewDevice()">+ Thêm</button>
                 <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
