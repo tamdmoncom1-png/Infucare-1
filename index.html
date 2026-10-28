@@ -666,7 +666,7 @@
 
         function formatStatusText(statusStr) {
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
-            if (statusStr === "NORMAL") return "Đang chạy";
+            if (statusStr === "NORMAL") return "Đang truyền";
             if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
             if (statusStr === "STOPPED") return "⚠️ Tắt dịch - Dừng chảy!";
             if (statusStr === "COMPLETED") return "✅ Hoàn thành!";
@@ -683,7 +683,7 @@
             for (let i = 1; i <= count; i++) {
                 let globalId = getGlobalDeviceIndex(currentDept, i);
                 let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
-                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `G${i}`;
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường${i}`;
                 
                 let deleteBtnHtml = isAdminLoggedIn ? `<button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button>` : '';
                 let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
