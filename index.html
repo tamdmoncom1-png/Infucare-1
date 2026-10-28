@@ -59,14 +59,14 @@
             padding-bottom: 6px;
         }
 
-        /* --- STYLE CHO LOGO ẢNH CHUẨN XÁC --- */
+        /* LOGO ẢNH CHUẨN XÁC & LINK */
         .logo-img-link {
             display: inline-flex;
             align-items: center;
             text-decoration: none;
         }
         .logo-img {
-            height: 32px; /* Điều chỉnh chiều cao logo cho cân đối trên thanh tiêu đề */
+            height: 32px;
             width: auto;
             object-fit: contain;
             transition: opacity 0.2s;
@@ -454,7 +454,6 @@
 
     <div class="header-bar">
         <div class="header-top">
-            <!-- DÙNG HÌNH ẢNH LOGO GỐC & TRỎ VỀ infucare.vn -->
             <a href="https://infucare.vn" target="_blank" class="logo-img-link" title="Truy cập InfuCare.vn">
                 <img src="logo.png" alt="InfuCare Logo" class="logo-img">
             </a>
@@ -487,7 +486,9 @@
 
         const client = mqtt.connect(brokerUrl, options);
 
-        let telemetryStore = {};
+        // Khởi tạo telemetryStore bằng cách khôi phục từ localStorage nếu có để tránh mất trạng thái khi F5
+        let telemetryStore = JSON.parse(localStorage.getItem('infucare_telemetry_store')) || {};
+        
         const ADMIN_PASSWORD = "tamcamau2026";
         let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
 
@@ -668,7 +669,7 @@
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
             if (statusStr === "NORMAL") return "Đang chạy";
             if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
-            if (statusStr === "STOPPED") return "⚠️ Tắt dịch - Dừng chảy!";
+            if (statusStr === "STOPPED") return "⚠️ Dừng chảy!";
             if (statusStr === "COMPLETED") return "✅ Hoàn thành!";
             if (statusStr === "BELOW") return "⚠️ Tốc độ thấp";
             if (statusStr === "DISCONNECTED") return "Offline";
@@ -903,7 +904,7 @@
                     continue;
                 }
 
-                let currentStatus = data.statusText || "DISCONNECTED";
+                let currentStatus = data.statusText || "CONNECTED";
                 if (currentStatus === "DISCONNECTED") {
                     handleDeviceOfflineState(devTopicId);
                     continue;
@@ -1020,10 +1021,14 @@
                     telemetryStore[devTopicId].statusText = message;
                     if (message === "DISCONNECTED") {
                         handleDeviceOfflineState(devTopicId);
+                        localStorage.setItem('infucare_telemetry_store', JSON.stringify(telemetryStore));
                         return;
                     }
                 }
                 if (metric === 'battery') telemetryStore[devTopicId].battery = message;
+
+                // Lưu lại trạng thái mới nhất vào localStorage để khi mở lại web không bị mất dữ liệu
+                localStorage.setItem('infucare_telemetry_store', JSON.stringify(telemetryStore));
 
                 let currentStatus = telemetryStore[devTopicId].statusText || "CONNECTED";
                 if (currentStatus === "DISCONNECTED") {
