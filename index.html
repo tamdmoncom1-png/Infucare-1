@@ -890,7 +890,6 @@
             }
         }
 
-        // Hàm cập nhật toàn bộ giao diện của 1 thiết bị từ đối tượng dữ liệu
         function updateDeviceUI(devTopicId, data) {
             if (!data) return;
 
@@ -1032,6 +1031,16 @@
                 updateDeviceUI(devTopicId, telemetryStore[devTopicId]);
             }
         });
+
+        // 🌟 BỔ SUNG: Hàm đồng bộ và làm mới liên tục từ localStorage mỗi 3 giây
+        // Giúp đảm bảo nếu thiết bị có dữ liệu lưu trong bộ nhớ đệm, màn hình sẽ luôn bám sát mà không bị kẹt.
+        setInterval(() => {
+            let storedData = localStorage.getItem('infucare_telemetry_store');
+            if (storedData) {
+                telemetryStore = JSON.parse(storedData);
+                restoreTelemetryToUI();
+            }
+        }, 3000);
     </script>
 </body>
 </html>
