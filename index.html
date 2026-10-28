@@ -668,7 +668,7 @@
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
             if (statusStr === "NORMAL") return "Đang chạy";
             if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
-            if (statusStr === "STOPPED") return "⚠️ Dừng chảy!";
+            if (statusStr === "STOPPED") return "⚠️ Tắt dịch - Dừng chảy!";
             if (statusStr === "COMPLETED") return "✅ Hoàn thành!";
             if (statusStr === "BELOW") return "⚠️ Tốc độ thấp";
             if (statusStr === "DISCONNECTED") return "Offline";
@@ -691,7 +691,7 @@
                 html += `
                     <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <div class="device-header">
-                            <span class="device-title">TB ${globalId} (${devTopicId})</span>
+                            <span class="device-title">THIẾT BỊ ${globalId} (${devTopicId})</span>
                             <div style="display: flex; align-items: center; gap: 4px;">
                                 <span class="battery-badge" id="battery-${devTopicId}">🔋 --%</span>
                                 ${deleteBtnHtml}
@@ -704,7 +704,7 @@
                         </div>
 
                         <div class="metric-box">
-                            <div class="metric-label">THỰC TẾ:</div>
+                            <div class="metric-label">TỐC ĐỘ THỰC TẾ:</div>
                             <div class="metric-value-row">
                                 <span class="metric-value" id="flow-${devTopicId}">0</span>
                                 <span class="metric-unit">gtt/m</span>
@@ -712,7 +712,7 @@
                         </div>
 
                         <div class="metric-box">
-                            <div class="metric-label">CÀI ĐẶT:</div>
+                            <div class="metric-label">TỐC ĐỘ Y LỆNH:</div>
                             <div class="metric-value-row">
                                 <span class="metric-value target" id="target-${devTopicId}">0</span>
                                 <span class="metric-unit">gtt/m</span>
