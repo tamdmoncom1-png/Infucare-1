@@ -691,7 +691,7 @@
                 html += `
                     <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <div class="device-header">
-                            <span class="device-title">TB ${globalId}</span>
+                            <span class="device-title">TB ${globalId} (${devTopicId})</span>
                             <div style="display: flex; align-items: center; gap: 4px;">
                                 <span class="battery-badge" id="battery-${devTopicId}">🔋 --%</span>
                                 ${deleteBtnHtml}
@@ -998,7 +998,11 @@
             const badge = document.getElementById('connection-status');
             badge.innerText = 'ONLINE';
             badge.classList.add('online');
+            
+            // Lắng nghe toàn bộ các dạng topic phổ biến từ ESP32 để không bị sót
             client.subscribe('drip_monitor/#');
+            client.subscribe('esp32/#');
+            client.subscribe('infucare/#');
         });
 
         client.on('offline', () => {
@@ -1011,36 +1015,44 @@
             const message = payload.toString();
             const parts = topic.split('/');
             
+            // In ra console để anh kiểm tra nếu cần (F12)
+            console.log("MQTT nhận:", topic, "=>", message);
+
             if (parts.length >= 3) {
-                const devTopicId = parts[1]; 
-                const metric = parts[2]; 
+                // Hỗ trợ bắt ID thiết bị linh hoạt từ mọi vị trí trong topic
+                let devTopicId = parts[1];
+                let metric = parts[2];
+
+                // Nếu định dạng topic là drip_monitor/flow/dev01 thì đảo ngược lại
+                if (parts[1] === 'flow' || parts[1] === 'target' || parts[1] === 'status' || parts[1] === 'battery') {
+                    metric = parts[1];
+                    devTopicId = parts[2];
+                }
+
+                if (!devTopicId) return;
 
                 if (!telemetryStore[devTopicId]) telemetryStore[devTopicId] = {};
 
                 if (metric === 'flow') telemetryStore[devTopicId].flow = message;
-                else if (metric === 'infused') telemetryStore[devTopicId].infused = message;
-                else if (metric === 'target') telemetryStore[devTopicId].target = message;
-                else if (metric === 'limit_ml') telemetryStore[devTopicId].limit = message;
+                else if (metric === 'infused' || metric === 'inf') telemetryStore[devTopicId].infused = message;
+                else if (metric === 'target' || metric === 'tgt') telemetryStore[devTopicId].target = message;
+                else if (metric === 'limit_ml' || metric === 'limit') telemetryStore[devTopicId].limit = message;
                 else if (metric === 'status') telemetryStore[devTopicId].statusText = message;
-                else if (metric === 'battery') telemetryStore[devTopicId].battery = message;
+                else if (metric === 'battery' || metric === 'bat') telemetryStore[devTopicId].battery = message;
 
-                // Lưu lại bộ nhớ telemetry mới nhất vào localStorage
                 localStorage.setItem('infucare_telemetry_store', JSON.stringify(telemetryStore));
-
-                // Cập nhật ngay giao diện cho thiết bị này với toàn bộ dữ liệu hiện có
                 updateDeviceUI(devTopicId, telemetryStore[devTopicId]);
             }
         });
 
-        // 🌟 BỔ SUNG: Hàm đồng bộ và làm mới liên tục từ localStorage mỗi 3 giây
-        // Giúp đảm bảo nếu thiết bị có dữ liệu lưu trong bộ nhớ đệm, màn hình sẽ luôn bám sát mà không bị kẹt.
+        // 🌟 BỔ SUNG QUÉT LIÊN TỤC: Đảm bảo giao diện luôn đồng bộ dữ liệu mới nhất từ bộ nhớ đệm mỗi 2 giây
         setInterval(() => {
             let storedData = localStorage.getItem('infucare_telemetry_store');
             if (storedData) {
                 telemetryStore = JSON.parse(storedData);
                 restoreTelemetryToUI();
             }
-        }, 3000);
+        }, 2000);
     </script>
 </body>
 </html>
