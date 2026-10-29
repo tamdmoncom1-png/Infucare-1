@@ -486,7 +486,9 @@
 
         const client = mqtt.connect(brokerUrl, options);
 
-        let telemetryStore = JSON.parse(localStorage.getItem('infucare_telemetry_store')) || {};
+        // Chỉ lưu riêng các thông số y lệnh (target, limit) để khi tắt mở lại web vẫn nhớ lệnh cài đặt
+        let targetStore = JSON.parse(localStorage.getItem('infucare_target_store')) || {};
+        let telemetryStore = {};
         
         const ADMIN_PASSWORD = "tamcamau2026";
         let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
@@ -688,6 +690,9 @@
                 let deleteBtnHtml = isAdminLoggedIn ? `<button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button>` : '';
                 let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
 
+                let savedTarget = (targetStore[devTopicId] && targetStore[devTopicId].target) ? targetStore[devTopicId].target : '40';
+                let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
+
                 html += `
                     <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <div class="device-header">
@@ -714,7 +719,7 @@
                         <div class="metric-box">
                             <div class="metric-label">TỐC ĐỘ Y LỆNH:</div>
                             <div class="metric-value-row">
-                                <span class="metric-value target" id="target-${devTopicId}">0</span>
+                                <span class="metric-value target" id="target-${devTopicId}">${savedTarget}</span>
                                 <span class="metric-unit">gtt/m</span>
                             </div>
                         </div>
@@ -722,7 +727,7 @@
                         <div class="metric-box">
                             <div class="metric-label">TỔNG ML:</div>
                             <div class="metric-value-row">
-                                <span class="metric-value" style="font-size: 13px;"><span id="infval-${devTopicId}">0</span>/<span id="limit-${devTopicId}">0</span></span>
+                                <span class="metric-value" style="font-size: 13px;"><span id="infval-${devTopicId}">0</span>/<span id="limit-${devTopicId}">${savedLimit}</span></span>
                                 <span class="metric-unit">ml</span>
                             </div>
                         </div>
@@ -764,14 +769,17 @@
                 let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
                 let deleteTd = isAdminLoggedIn ? `<td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button></td>` : `<td style="text-align: center; color: var(--text-muted); font-size: 10px;">-</td>`;
 
+                let savedTarget = (targetStore[devTopicId] && targetStore[devTopicId].target) ? targetStore[devTopicId].target : '40';
+                let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
+
                 html += `
                     <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
                         <td style="font-weight: bold; color: var(--primary-blue);">TB ${globalId}</td>
                         <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')" style="${inputStyle}; width: 65px;"></td>
                         <td><span id="battery-tbl-${devTopicId}" class="battery-badge" style="background:none; padding:0;">--%</span></td>
                         <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span></td>
-                        <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">0</span></td>
-                        <td><span id="infval-tbl-${devTopicId}">0</span>/<span id="limit-tbl-${devTopicId}">0</span></td>
+                        <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">${savedTarget}</span></td>
+                        <td><span id="infval-tbl-${devTopicId}">0</span>/<span id="limit-tbl-${devTopicId}">${savedLimit}</span></td>
                         <td id="status-tbl-${devTopicId}" style="color: var(--danger-red); font-weight: bold;">Offline</td>
                         ${deleteTd}
                     </tr>
@@ -999,7 +1007,6 @@
             badge.innerText = 'ONLINE';
             badge.classList.add('online');
             
-            // Lắng nghe toàn bộ các dạng topic phổ biến từ ESP32 để không bị sót
             client.subscribe('drip_monitor/#');
             client.subscribe('esp32/#');
             client.subscribe('infucare/#');
@@ -1015,15 +1022,10 @@
             const message = payload.toString();
             const parts = topic.split('/');
             
-            // In ra console để anh kiểm tra nếu cần (F12)
-            console.log("MQTT nhận:", topic, "=>", message);
-
             if (parts.length >= 3) {
-                // Hỗ trợ bắt ID thiết bị linh hoạt từ mọi vị trí trong topic
                 let devTopicId = parts[1];
                 let metric = parts[2];
 
-                // Nếu định dạng topic là drip_monitor/flow/dev01 thì đảo ngược lại
                 if (parts[1] === 'flow' || parts[1] === 'target' || parts[1] === 'status' || parts[1] === 'battery') {
                     metric = parts[1];
                     devTopicId = parts[2];
@@ -1032,27 +1034,27 @@
                 if (!devTopicId) return;
 
                 if (!telemetryStore[devTopicId]) telemetryStore[devTopicId] = {};
+                if (!targetStore[devTopicId]) targetStore[devTopicId] = {};
 
                 if (metric === 'flow') telemetryStore[devTopicId].flow = message;
                 else if (metric === 'infused' || metric === 'inf') telemetryStore[devTopicId].infused = message;
-                else if (metric === 'target' || metric === 'tgt') telemetryStore[devTopicId].target = message;
-                else if (metric === 'limit_ml' || metric === 'limit') telemetryStore[devTopicId].limit = message;
+                else if (metric === 'target' || metric === 'tgt') {
+                    telemetryStore[devTopicId].target = message;
+                    targetStore[devTopicId].target = message;
+                    localStorage.setItem('infucare_target_store', JSON.stringify(targetStore));
+                }
+                else if (metric === 'limit_ml' || metric === 'limit') {
+                    telemetryStore[devTopicId].limit = message;
+                    targetStore[devTopicId].limit = message;
+                    localStorage.setItem('infucare_target_store', JSON.stringify(targetStore));
+                }
                 else if (metric === 'status') telemetryStore[devTopicId].statusText = message;
                 else if (metric === 'battery' || metric === 'bat') telemetryStore[devTopicId].battery = message;
 
-                localStorage.setItem('infucare_telemetry_store', JSON.stringify(telemetryStore));
+                // KHÔNG lưu telemetryStore vào localStorage để tránh lưu số thực tế cũ khi mở lại web
                 updateDeviceUI(devTopicId, telemetryStore[devTopicId]);
             }
         });
-
-        // 🌟 BỔ SUNG QUÉT LIÊN TỤC: Đảm bảo giao diện luôn đồng bộ dữ liệu mới nhất từ bộ nhớ đệm mỗi 2 giây
-        setInterval(() => {
-            let storedData = localStorage.getItem('infucare_telemetry_store');
-            if (storedData) {
-                telemetryStore = JSON.parse(storedData);
-                restoreTelemetryToUI();
-            }
-        }, 2000);
     </script>
 </body>
 </html>
