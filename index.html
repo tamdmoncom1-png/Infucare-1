@@ -517,7 +517,6 @@
         let targetStore = JSON.parse(localStorage.getItem('infucare_target_store')) || {};
         let telemetryStore = {};
         let infusionHistory = JSON.parse(localStorage.getItem('infucare_infusion_history')) || [];
-        // Lưu vết trạng thái bắt đầu truyền để tính thời gian
         let activeSessions = JSON.parse(localStorage.getItem('infucare_active_sessions')) || {};
         
         const ADMIN_PASSWORD = "tamcamau2026";
@@ -790,8 +789,8 @@
                                 <th>TB</th>
                                 <th>Vị trí</th>
                                 <th>Pin</th>
-                                <th>Thực tế</th>
-                                <th>Target</th>
+                                <th>Tốc độ thực tế</th>
+                                <th>Tốc độ y lệnh</th>
                                 <th>Truyền/Giới hạn</th>
                                 <th>Trạng thái</th>
                                 <th style="text-align: center;">Xóa</th>
@@ -835,7 +834,7 @@
             let html = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <h3 style="margin: 0; font-size: 14px; color: var(--text-main);">📋 Lịch sử ca truyền (Phục vụ nhập HIS)</h3>
-                    <button class="btn-clear-history" onclick="clearHistory()">Xóa lịch sử</button>
+                    <button class="btn-clear-history" onclick="clearHistory()">🗑️ Xóa lịch sử (Admin)</button>
                 </div>
                 <div class="device-table-wrapper">
                     <table>
@@ -846,7 +845,7 @@
                                 <th>Thiết bị</th>
                                 <th>Bắt đầu</th>
                                 <th>Kết thúc</th>
-                                <th>Y lệnh (Target)</th>
+                                <th>Tốc độ y lệnh</th>
                                 <th>Đã truyền</th>
                                 <th style="text-align: center;">Thao tác HIS</th>
                             </tr>
@@ -857,7 +856,6 @@
             if (infusionHistory.length === 0) {
                 html += `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">Chưa có ca truyền nào hoàn thành.</td></tr>`;
             } else {
-                // Sắp xếp mới nhất lên đầu
                 let sortedHistory = [...infusionHistory].reverse();
                 sortedHistory.forEach((item, index) => {
                     html += `
@@ -895,10 +893,16 @@
         }
 
         function clearHistory() {
+            if (!isAdminLoggedIn) {
+                alert("Vui lòng đăng nhập quyền Quản trị (Admin) để xóa lịch sử!");
+                toggleAdminAuth();
+                return;
+            }
             if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử ca truyền không?")) {
                 infusionHistory = [];
                 localStorage.removeItem('infucare_infusion_history');
                 renderHistoryView();
+                alert("Đã xóa toàn bộ lịch sử ca truyền thành công.");
             }
         }
 
@@ -1139,16 +1143,6 @@
             badge.classList.remove('online');
         });
 
-        function formatCurrentTime() {
-            let now = new Date();
-            let hours = String(now.getHours()).padStart(2, '0');
-            let minutes = String(now.getMinutes()).padStart(2, '0');
-            let seconds = String(now.getSeconds()).padStart(2, '0');
-            let day = String(now.getDate()).padStart(2, '0');
-            let month = String(now.getMonth() + 1).padStart(2, '0');
-            return `${hours}:${minutes}:${minutes ? minutes : ''} (${day}/${month})`;
-        }
-
         function formatShortTime() {
             let now = new Date();
             let hours = String(now.getHours()).padStart(2, '0');
@@ -1193,7 +1187,6 @@
                     let nowStr = formatShortTime();
                     let fullDateStr = new Date().toLocaleDateString('vi-VN') + ' ' + nowStr;
 
-                    // Xử lý ghi nhận thời gian bắt đầu khi chuyển sang NORMAL hoặc khi bắt đầu có dòng chảy
                     if (message === "NORMAL" && oldStatus !== "NORMAL") {
                         activeSessions[devTopicId] = {
                             startTime: nowStr,
@@ -1202,7 +1195,6 @@
                         localStorage.setItem('infucare_active_sessions', JSON.stringify(activeSessions));
                     }
 
-                    // Xử lý ghi nhận hoàn thành khi COMPLETED hoặc STOPPED
                     if ((message === "COMPLETED" || message === "STOPPED") && oldStatus !== message) {
                         let session = activeSessions[devTopicId] || { startTime: nowStr };
                         let bedName = getBedNameByTopicId(devTopicId);
@@ -1224,7 +1216,6 @@
                         infusionHistory.push(historyItem);
                         localStorage.setItem('infucare_infusion_history', JSON.stringify(infusionHistory));
                         
-                        // Xóa phiên active sau khi đã lưu log
                         delete activeSessions[devTopicId];
                         localStorage.setItem('infucare_active_sessions', JSON.stringify(activeSessions));
                     }
