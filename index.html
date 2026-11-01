@@ -78,6 +78,7 @@
         .header-bottom {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 6px;
             overflow-x: auto;
             padding-bottom: 2px;
@@ -448,6 +449,32 @@
             text-transform: uppercase;
             font-weight: bold;
         }
+        .btn-copy-his {
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
+            color: var(--primary-blue);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+        .btn-copy-his:hover {
+            background: #0284c7;
+            color: white;
+        }
+        .btn-clear-history {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: var(--danger-red);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -463,6 +490,7 @@
                 <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
                 <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
                 <button class="btn-action" onclick="setViewMode('compact')" id="btn-compact">📱 Mobile</button>
+                <button class="btn-action" onclick="setViewMode('history')" id="btn-history" style="background: #e0f2fe; color: var(--primary-blue);">📋 Lịch sử HIS</button>
                 <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Admin</button>
                 <div id="connection-status" class="connection-badge">Đang kết nối...</div>
             </div>
@@ -486,9 +514,11 @@
 
         const client = mqtt.connect(brokerUrl, options);
 
-        // Chỉ lưu riêng các thông số y lệnh (target, limit) để khi tắt mở lại web vẫn nhớ lệnh cài đặt
         let targetStore = JSON.parse(localStorage.getItem('infucare_target_store')) || {};
         let telemetryStore = {};
+        let infusionHistory = JSON.parse(localStorage.getItem('infucare_infusion_history')) || [];
+        // Lưu vết trạng thái bắt đầu truyền để tính thời gian
+        let activeSessions = JSON.parse(localStorage.getItem('infucare_active_sessions')) || {};
         
         const ADMIN_PASSWORD = "tamcamau2026";
         let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
@@ -630,6 +660,7 @@
             document.getElementById('btn-grid').classList.remove('active-mode');
             document.getElementById('btn-table').classList.remove('active-mode');
             document.getElementById('btn-compact').classList.remove('active-mode');
+            document.getElementById('btn-history').classList.remove('active-mode');
 
             if (currentView === 'grid') {
                 document.getElementById('btn-grid').classList.add('active-mode');
@@ -637,6 +668,8 @@
                 document.getElementById('btn-table').classList.add('active-mode');
             } else if (currentView === 'compact') {
                 document.getElementById('btn-compact').classList.add('active-mode');
+            } else if (currentView === 'history') {
+                document.getElementById('btn-history').classList.add('active-mode');
             }
         }
 
@@ -645,6 +678,11 @@
             updateViewButtonsActiveState();
             let count = getDeviceCount();
             let deptName = getCurrentDeptName();
+
+            if (currentView === 'history') {
+                renderHistoryView();
+                return;
+            }
 
             if (count === 0) {
                 let addBtnHtml = isAdminLoggedIn ? `<button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto; display: flex;">+ Thêm Thiết Bị</button>` : `<p style="color: var(--text-muted); font-size: 13px;">Chế độ chỉ xem. Đăng nhập Quản trị để thêm thiết bị.</p>`;
@@ -793,6 +831,77 @@
             document.getElementById('main-content').innerHTML = html;
         }
 
+        function renderHistoryView() {
+            let html = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3 style="margin: 0; font-size: 14px; color: var(--text-main);">📋 Lịch sử ca truyền (Phục vụ nhập HIS)</h3>
+                    <button class="btn-clear-history" onclick="clearHistory()">Xóa lịch sử</button>
+                </div>
+                <div class="device-table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Thời gian hoàn thành</th>
+                                <th>Vị trí (Giường)</th>
+                                <th>Thiết bị</th>
+                                <th>Bắt đầu</th>
+                                <th>Kết thúc</th>
+                                <th>Y lệnh (Target)</th>
+                                <th>Đã truyền</th>
+                                <th style="text-align: center;">Thao tác HIS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            if (infusionHistory.length === 0) {
+                html += `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">Chưa có ca truyền nào hoàn thành.</td></tr>`;
+            } else {
+                // Sắp xếp mới nhất lên đầu
+                let sortedHistory = [...infusionHistory].reverse();
+                sortedHistory.forEach((item, index) => {
+                    html += `
+                        <tr>
+                            <td style="color: var(--text-muted); font-size: 11px;">${item.timestamp}</td>
+                            <td style="font-weight: bold; color: var(--primary-blue);">${item.bed}</td>
+                            <td>${item.devId}</td>
+                            <td>${item.startTime}</td>
+                            <td>${item.endTime}</td>
+                            <td style="color: var(--accent-blue); font-weight: bold;">${item.target} gtt/p</td>
+                            <td style="color: var(--neon-green); font-weight: bold;">${item.infused} / ${item.limit} ml</td>
+                            <td style="text-align: center;">
+                                <button class="btn-copy-his" onclick="copyHisData('${item.startTime}', '${item.endTime}', '${item.target}')">📋 Copy HIS</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function copyHisData(start, end, target) {
+            let textToCopy = `Bắt đầu: ${start} | Kết thúc: ${end} | Y lệnh: ${target} gtt/p`;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert(`Đã copy vào bộ nhớ tạm:\n${textToCopy}\n\nBạn chỉ cần mở phần mềm HIS và bấm Ctrl + V vào ô nhập liệu!`);
+            }).catch(err => {
+                alert("Không thể copy tự động, vui lòng copy thủ công: " + textToCopy);
+            });
+        }
+
+        function clearHistory() {
+            if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử ca truyền không?")) {
+                infusionHistory = [];
+                localStorage.removeItem('infucare_infusion_history');
+                renderHistoryView();
+            }
+        }
+
         function switchDept(deptKey) {
             currentDept = deptKey;
             localStorage.setItem('infucare_current_dept', deptKey);
@@ -889,13 +998,25 @@
                 if(flowEl) {
                     flowEl.classList.remove('danger', 'warning-amber');
                 }
-            } else {
+            } else if (currentView === 'table') {
                 let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
                 if(statTbl) {
                     statTbl.innerText = "Offline";
                     statTbl.style.color = "var(--danger-red)";
                 }
             }
+        }
+
+        function getBedNameByTopicId(devTopicId) {
+            let count = getDeviceCount();
+            for (let i = 1; i <= count; i++) {
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let topicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                if (topicId === devTopicId) {
+                    return localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
+                }
+            }
+            return devTopicId;
         }
 
         function updateDeviceUI(devTopicId, data) {
@@ -948,7 +1069,7 @@
                         }
                     }
                 }
-            } else {
+            } else if (currentView === 'table') {
                 if (data.battery !== undefined) updateBatteryUI(devTopicId, data.battery, false);
                 
                 if (data.flow !== undefined) {
@@ -1018,6 +1139,23 @@
             badge.classList.remove('online');
         });
 
+        function formatCurrentTime() {
+            let now = new Date();
+            let hours = String(now.getHours()).padStart(2, '0');
+            let minutes = String(now.getMinutes()).padStart(2, '0');
+            let seconds = String(now.getSeconds()).padStart(2, '0');
+            let day = String(now.getDate()).padStart(2, '0');
+            let month = String(now.getMonth() + 1).padStart(2, '0');
+            return `${hours}:${minutes}:${minutes ? minutes : ''} (${day}/${month})`;
+        }
+
+        function formatShortTime() {
+            let now = new Date();
+            let hours = String(now.getHours()).padStart(2, '0');
+            let minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
         client.on('message', (topic, payload) => {
             const message = payload.toString();
             const parts = topic.split('/');
@@ -1048,10 +1186,51 @@
                     targetStore[devTopicId].limit = message;
                     localStorage.setItem('infucare_target_store', JSON.stringify(targetStore));
                 }
-                else if (metric === 'status') telemetryStore[devTopicId].statusText = message;
+                else if (metric === 'status') {
+                    let oldStatus = telemetryStore[devTopicId].statusText;
+                    telemetryStore[devTopicId].statusText = message;
+
+                    let nowStr = formatShortTime();
+                    let fullDateStr = new Date().toLocaleDateString('vi-VN') + ' ' + nowStr;
+
+                    // Xử lý ghi nhận thời gian bắt đầu khi chuyển sang NORMAL hoặc khi bắt đầu có dòng chảy
+                    if (message === "NORMAL" && oldStatus !== "NORMAL") {
+                        activeSessions[devTopicId] = {
+                            startTime: nowStr,
+                            fullStart: fullDateStr
+                        };
+                        localStorage.setItem('infucare_active_sessions', JSON.stringify(activeSessions));
+                    }
+
+                    // Xử lý ghi nhận hoàn thành khi COMPLETED hoặc STOPPED
+                    if ((message === "COMPLETED" || message === "STOPPED") && oldStatus !== message) {
+                        let session = activeSessions[devTopicId] || { startTime: nowStr };
+                        let bedName = getBedNameByTopicId(devTopicId);
+                        let targetVal = telemetryStore[devTopicId].target || (targetStore[devTopicId] ? targetStore[devTopicId].target : '40');
+                        let infusedVal = telemetryStore[devTopicId].infused || '0';
+                        let limitVal = telemetryStore[devTopicId].limit || (targetStore[devTopicId] ? targetStore[devTopicId].limit : '500');
+
+                        let historyItem = {
+                            timestamp: fullDateStr,
+                            bed: bedName,
+                            devId: devTopicId,
+                            startTime: session.startTime,
+                            endTime: nowStr,
+                            target: targetVal,
+                            infused: infusedVal,
+                            limit: limitVal
+                        };
+
+                        infusionHistory.push(historyItem);
+                        localStorage.setItem('infucare_infusion_history', JSON.stringify(infusionHistory));
+                        
+                        // Xóa phiên active sau khi đã lưu log
+                        delete activeSessions[devTopicId];
+                        localStorage.setItem('infucare_active_sessions', JSON.stringify(activeSessions));
+                    }
+                }
                 else if (metric === 'battery' || metric === 'bat') telemetryStore[devTopicId].battery = message;
 
-                // KHÔNG lưu telemetryStore vào localStorage để tránh lưu số thực tế cũ khi mở lại web
                 updateDeviceUI(devTopicId, telemetryStore[devTopicId]);
             }
         });
