@@ -721,19 +721,18 @@
         }
 
         // HÀM XỬ LÝ TRẠNG THÁI HIỂN THỊ PHÂN BIỆT V2 VÀ V3 (ĐẶC QUYỀN TÍNH NĂNG BỌT KHÍ & KHÓA KẸP SERVO)
-      function formatStatusText(statusStr, devVer = 'V3') {
+   function formatStatusText(statusStr, devVer = 'V3') {
     if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
     if (statusStr === "NORMAL") return "Đang truyền";
     if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ dòng!";
     if (statusStr === "STOPPED") {
-        // Phân biệt nếu chưa bật cảm biến bọt khí thì chỉ báo Dừng chảy/Tắt dịch
-        return (devVer === 'V3') ? "⚠️ Dừng chảy / Tắt dịch (Đã khóa kẹp)" : "⚠️ Dừng chảy / Tắt dịch!";
+        return "⚠️ Dừng chảy / Tắt dịch (Đã khóa kẹp)";
     }
     if (statusStr === "AIR_ALARM") {
-        return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)";
+        return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)"; // <--- Hiển thị đúng câu này khi có khí
     }
     if (statusStr === "COMPLETED") {
-        return (devVer === 'V3') ? "✅ HOÀN THÀNH LIMIT (Đã khóa servo)" : "✅ Hoàn thành định mức!";
+        return "✅ HOÀN THÀNH LIMIT (Đã khóa servo)";
     }
     if (statusStr === "BELOW") return "⚠️ Tốc độ thấp hơn y lệnh";
     if (statusStr === "DISCONNECTED") return "Offline";
