@@ -486,7 +486,7 @@
         }
     </style>
 </head>
-<body>
+<body onclick="initAudioContext()">
 
     <div class="header-bar">
         <div class="header-top">
@@ -500,6 +500,7 @@
                 <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
                 <button class="btn-action" onclick="setViewMode('compact')" id="btn-compact">📱 Mobile</button>
                 <button class="btn-action" onclick="setViewMode('history')" id="btn-history" style="background: #e0f2fe; color: var(--primary-blue);">📋 Lịch sử HIS</button>
+                <button class="btn-action" onclick="requestNotifPermission()" id="btn-notif" style="background: #fef3c7; color: #d97706;">🔔 Bật Thông Báo</button>
                 <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Admin</button>
                 <div id="connection-status" class="connection-badge">Đang kết nối...</div>
             </div>
@@ -531,6 +532,74 @@
         const ADMIN_PASSWORD = "tamcamau2026";
         let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
 
+        // Khởi tạo Audio Context cho trình duyệt phát âm thanh cảnh báo
+        let audioCtx = null;
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playAlertSound() {
+            try {
+                initAudioContext();
+                if (!audioCtx) return;
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(500, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } catch (e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
+        // Xin quyền Web Push Notification
+        function requestNotifPermission() {
+            if (!("Notification" in window)) {
+                alert("Trình duyệt của bạn không hỗ trợ thông báo đẩy!");
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    alert("Đã bật thông báo thành công! Khi có sự cố, điện thoại sẽ báo chuông và hiển thị thông báo ngay cả khi khóa màn hình.");
+                    document.getElementById('btn-notif').style.background = "#dcfce7";
+                    document.getElementById('btn-notif').style.color = "#15803d";
+                    document.getElementById('btn-notif').innerText = "🔔 Đã Bật Noti";
+                } else {
+                    alert("Bạn đã từ chối quyền thông báo. Hãy bật lại trong cài đặt trình duyệt nhé.");
+                }
+            });
+        }
+
+        function sendWebNotification(title, bodyText) {
+            if (Notification.permission === "granted") {
+                try {
+                    const notif = new Notification(title, {
+                        body: bodyText,
+                        icon: 'logo.png',
+                        badge: 'logo.png',
+                        vibrate: [200, 100, 200]
+                    });
+                    notif.onclick = function() {
+                        window.focus();
+                        notif.close();
+                    };
+                } catch (e) {
+                    console.log("Notification error:", e);
+                }
+            }
+        }
+
         function getDepartments() {
             let depts = JSON.parse(localStorage.getItem('infucare_departments'));
             if (!depts || depts.length === 0) {
@@ -557,6 +626,11 @@
             updateAdminUIState();
             renderDeptTabs();
             renderApp();
+            if (Notification.permission === "granted") {
+                document.getElementById('btn-notif').style.background = "#dcfce7";
+                document.getElementById('btn-notif').style.color = "#15803d";
+                document.getElementById('btn-notif').innerText = "🔔 Đã Bật Noti";
+            }
         });
 
         function toggleAdminAuth() {
@@ -653,7 +727,6 @@
         function getDeviceList() {
             let list = JSON.parse(localStorage.getItem(`infucare_device_list_${currentDept}`));
             if (!list) {
-                // Khởi tạo mặc định nếu chưa có danh sách (tương thích ngược bản cũ 1->count)
                 let count = parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
                 list = [];
                 for (let i = 1; i <= count; i++) {
@@ -725,16 +798,10 @@
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
             if (statusStr === "NORMAL") return "Đang truyền";
             if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
-            if (statusStr === "STOPPED") {
-                return "⚠️ Dừng chảy / Tắt dịch ";
-            }
-            if (statusStr === "AIR_ALARM") {
-                return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)";
-            }
-            if (statusStr === "COMPLETED") {
-                return "✅ HOÀN THÀNH LIMIT (Đã khóa servo)";
-            }
-            if (statusStr === "BELOW") return "⚠️ Tốc độ thấp ";
+            if (statusStr === "STOPPED") return "⚠️ Dừng chảy / Tắt dịch";
+            if (statusStr === "AIR_ALARM") return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)";
+            if (statusStr === "COMPLETED") return "✅ HOÀN THÀNH LIMIT (Đã khóa servo)";
+            if (statusStr === "BELOW") return "⚠️ Tốc độ thấp";
             if (statusStr === "DISCONNECTED") return "Offline";
             return statusStr;
         }
@@ -745,7 +812,7 @@
             
             let html = `<div class="${gridClass}">`;
             devices.forEach((dev, index) => {
-                let devTopicId = dev.id; // vd: dev09, dev10...
+                let devTopicId = dev.id;
                 let devVer = dev.ver || 'V3';
                 let verClass = (devVer === 'V2') ? 'v2' : 'v3';
                 let savedBed = localStorage.getItem(`infucare_${currentDept}_${devTopicId}_bed`) || `Giường ${index + 1}`;
@@ -970,7 +1037,6 @@
                 let filtered = devices.filter(d => d.id !== devTopicId);
                 localStorage.setItem(`infucare_device_list_${currentDept}`, JSON.stringify(filtered));
                 
-                // Xóa sạch dữ liệu cache lưu riêng thiết bị đó nếu cần
                 localStorage.removeItem(`infucare_${currentDept}_${devTopicId}_bed`);
                 delete telemetryStore[devTopicId];
                 
@@ -1228,6 +1294,18 @@
                     let oldStatus = telemetryStore[devTopicId].statusText;
                     telemetryStore[devTopicId].statusText = message;
 
+                    let bedName = getBedNameByTopicId(devTopicId);
+
+                    // KÍCH HOẠT ÂM THANH VÀ THÔNG BÁO ĐẨY (WEB PUSH NOTIFICATION) KHI CÓ SỰ CỐ
+                    if (message !== oldStatus) {
+                        if (message === "AIR_ALARM" || message === "COMPLETED" || message === "EXCEEDED" || message === "STOPPED") {
+                            playAlertSound();
+                            let alertTitle = `🚨 Cảnh báo ${bedName} (${devTopicId.toUpperCase()})`;
+                            let alertBody = formatStatusText(message);
+                            sendWebNotification(alertTitle, alertBody);
+                        }
+                    }
+
                     let nowStr = formatShortTime();
                     let fullDateStr = new Date().toLocaleDateString('vi-VN') + ' ' + nowStr;
 
@@ -1241,7 +1319,6 @@
 
                     if ((message === "COMPLETED" || message === "STOPPED" || message === "AIR_ALARM") && oldStatus !== message) {
                         let session = activeSessions[devTopicId] || { startTime: nowStr };
-                        let bedName = getBedNameByTopicId(devTopicId);
                         let targetVal = telemetryStore[devTopicId].target || (targetStore[devTopicId] ? targetStore[devTopicId].target : '40');
                         let infusedVal = telemetryStore[devTopicId].infused || '0';
                         let limitVal = telemetryStore[devTopicId].limit || (targetStore[devTopicId] ? targetStore[devTopicId].limit : '500');
