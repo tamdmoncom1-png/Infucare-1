@@ -3,194 +3,1273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InfuCare - Giám Sát Dịch Truyền Thông Minh</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- MQTT Client CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <title>InfuCare - Quản Lý Thiết Bị IoT Y Tế</title>
+    <!-- Thư viện MQTT.js qua CDN -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        :root {
+            --card-bg: rgba(255, 255, 255, 0.98);
+            --card-border: #cbd5e1;
+            --primary-blue: #0284c7;
+            --neon-green: #16a34a;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --accent-blue: #2563eb;
+            --danger-red: #dc2626;
+            --warning-amber: #d97706;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-image: url('bg.jpg');
+            background-size: cover;
+            background-position: center top;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: var(--text-main);
+            margin: 0;
+            padding: 8px;
+            min-height: 100vh;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(248, 250, 252, 0.65); 
+            z-index: -1;
+        }
+        .header-bar {
+            background: var(--card-bg);
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+            backdrop-filter: blur(12px);
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 6px;
+        }
+        .logo-img-link {
+            display: inline-flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .logo-img {
+            height: 32px;
+            width: auto;
+            object-fit: contain;
+            transition: opacity 0.2s;
+        }
+        .logo-img:hover {
+            opacity: 0.85;
+        }
+        .header-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .dept-tabs {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
+        .tab-wrapper {
+            display: inline-flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .tab-wrapper.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 5px 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .tab-wrapper.active .tab-btn {
+            color: white;
+        }
+        .tab-delete-icon {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 0 4px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        .btn-add-dept {
+            background: #f1f5f9;
+            border: 1.2px dashed var(--primary-blue);
+            color: var(--primary-blue);
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .actions-right {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .btn-action {
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .btn-action.active-mode {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+        .btn-add {
+            background: #059669;
+            border: none;
+            color: white;
+            display: none;
+        }
+        .btn-admin {
+            background: #0f172a;
+            color: white;
+            border: none;
+        }
+        .btn-admin.logged-in {
+            background: #16a34a;
+        }
+        .connection-badge {
+            background: #fef2f2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            color: var(--danger-red);
+            border: 1px solid #fecaca;
+            white-space: nowrap;
+        }
+        .connection-badge.online {
+            color: var(--neon-green);
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        .content-container {
+            margin-top: 8px;
+        }
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .device-grid.compact-view {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 6px;
+        }
+        .device-card {
+            background: var(--card-bg);
+            border: 1.5px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            position: relative;
+        }
+        .device-grid.compact-view .device-card {
+            padding: 6px 8px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .device-grid.compact-view .device-header {
+            margin-bottom: 2px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .device-grid.compact-view .device-title {
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .device-grid.compact-view .battery-badge {
+            font-size: 9px;
+            padding: 1px 4px;
+        }
+        .device-grid.compact-view .bed-assign-row {
+            padding: 2px 4px;
+            margin-bottom: 3px;
+            background: #f1f5f9;
+            border-radius: 4px;
+            border: none;
+        }
+        .device-grid.compact-view .bed-assign-row label {
+            font-size: 8px;
+        }
+        .device-grid.compact-view .bed-input {
+            width: 55px;
+            padding: 1px 2px;
+            font-size: 10px;
+            border: none;
+            background: transparent;
+        }
+        .device-grid.compact-view .metric-box {
+            background: #f8fafc;
+            border-radius: 4px;
+            padding: 3px 6px;
+            margin-bottom: 3px;
+            border: 1px solid #e2e8f0;
+        }
+        .device-grid.compact-view .metric-label {
+            font-size: 7px;
+            margin-bottom: 1px;
+        }
+        .device-grid.compact-view .metric-value-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .device-grid.compact-view .metric-value {
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .device-grid.compact-view .metric-unit {
+            font-size: 8px;
+        }
+        .device-grid.compact-view .device-status-footer {
+            margin-top: 2px;
+            padding: 3px;
+            font-size: 9px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1.5px solid var(--card-border);
+            padding-bottom: 6px;
+        }
+        .device-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--text-main);
+        }
+        .version-tag {
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .version-tag.v2 {
+            background: #fef3c7;
+            color: #d97706;
+            border: 1px solid #fde68a;
+        }
+        .version-tag.v3 {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+        .btn-delete {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: var(--danger-red);
+            cursor: pointer;
+            font-size: 11px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: none;
+        }
+        .bed-assign-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8fafc;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--card-border);
+            margin-bottom: 8px;
+        }
+        .bed-assign-row label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+        .bed-input {
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            color: var(--primary-blue);
+            font-weight: bold;
+            padding: 3px 6px;
+            border-radius: 4px;
+            width: 90px;
+            text-align: center;
+            font-size: 11px;
+            pointer-events: none;
+        }
+        .metric-box {
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border: 1px solid var(--card-border);
+        }
+        .metric-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+            font-weight: bold;
+        }
+        .metric-value-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .metric-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--neon-green);
+        }
+        .metric-value.danger {
+            color: var(--danger-red) !important;
+        }
+        .metric-value.warning-amber {
+            color: var(--warning-amber) !important;
+        }
+        .metric-value.target {
+            color: var(--primary-blue);
+        }
+        .metric-unit {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .device-status-footer {
+            background: #fef2f2;
+            text-align: center;
+            padding: 6px;
+            border-radius: 5px;
+            font-size: 11px;
+            color: var(--danger-red);
+            margin-top: 8px;
+            font-weight: bold;
+            border: 1px solid #fecaca;
+        }
+        .device-status-footer.active {
+            color: #15803d;
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+        }
+        .device-status-footer.warning {
+            color: #991b1b;
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            animation: pulse-alert 1.5s infinite;
+        }
+        .device-status-footer.warning-mild {
+            color: #b45309;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            animation: pulse-alert 1.5s infinite;
+        }
+        .battery-badge {
+            font-size: 10px;
+            color: var(--primary-blue);
+            font-weight: bold;
+            background: #e0f2fe;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .battery-badge-low {
+            color: var(--danger-red) !important;
+            background: #fee2e2 !important;
+            border: 1px solid #fecaca;
+            animation: pulse-alert 1s infinite;
+        }
+        @keyframes pulse-alert {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        .device-table-wrapper {
+            background: var(--card-bg);
+            border: 1.5px solid var(--card-border);
+            border-radius: 12px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text-main);
+        }
+        th {
+            background: #f1f5f9;
+            color: var(--text-muted);
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .btn-copy-his {
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
+            color: var(--primary-blue);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+        .btn-copy-his:hover {
+            background: #0284c7;
+            color: white;
+        }
+        .btn-clear-history {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: var(--danger-red);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
-<body class="bg-slate-100 min-h-screen font-sans text-slate-800">
+<body>
 
-    <!-- Header -->
-    <header class="bg-indigo-700 text-white shadow-md py-4 px-6 mb-6">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold">InfuCare - Bệnh Viện Đa Khoa Cà Mau</h1>
-            <div id="connection-status" class="px-3 py-1 bg-amber-500 text-white rounded-full text-sm font-semibold">
-                Đang kết nối MQTT...
+    <div class="header-bar">
+        <div class="header-top">
+            <a href="https://infucare.vn" target="_blank" class="logo-img-link" title="Truy cập InfuCare.vn">
+                <img src="logo.png" alt="InfuCare Logo" class="logo-img">
+            </a>
+            
+            <div class="actions-right">
+                <button class="btn-action btn-add" id="btn-add-dev-main" onclick="addNewDevice()">+ Thêm</button>
+                <button class="btn-action" onclick="setViewMode('grid')" id="btn-grid">🔲 Lưới</button>
+                <button class="btn-action" onclick="setViewMode('table')" id="btn-table">📋 Bảng</button>
+                <button class="btn-action" onclick="setViewMode('compact')" id="btn-compact">📱 Mobile</button>
+                <button class="btn-action" onclick="setViewMode('history')" id="btn-history" style="background: #e0f2fe; color: var(--primary-blue);">📋 Lịch sử HIS</button>
+                <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Admin</button>
+                <div id="connection-status" class="connection-badge">Đang kết nối...</div>
             </div>
         </div>
-    </header>
 
-    <!-- Main Container -->
-    <main class="max-w-7xl mx-auto px-4 pb-12">
-        <div id="devices-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Các thẻ thiết bị cũ và mới sẽ được render động tại đây -->
+        <div class="header-bottom">
+            <div class="dept-tabs" id="dept-tabs-container"></div>
         </div>
-    </main>
+    </div>
 
-    <!-- Script Xử Lý MQTT & Giao Diện Dashboard -->
+    <div class="content-container" id="main-content"></div>
+
     <script>
-        // Cấu hình kết nối MQTT Broker (HiveMQ Cloud Secure)
-        const brokerUrl = 'wss://dc96c9840eee44adbb0987edf4172106.s1.eu.hivemq.cloud:8883/mqtt';
+        const brokerUrl = 'wss://dc96c9840eee44adbb0987edf4172106.s1.eu.hivemq.cloud:8884/mqtt';
         const options = {
-            clientId: 'InfuCare_WebDashboard_' + Math.random().toString(16).substring(2, 8),
+            clientId: 'WebDashboard_' + Math.random().toString(16).substr(2, 8),
             username: 'drip_monitor_user',
             password: 'TamCaMau2026',
             clean: true
         };
 
-        // Lưu trữ trạng thái tất cả các thiết bị theo ID cố định (tránh bị lệch/nhảy khi xóa)
-        let devicesMap = {};
-
-        // Khởi tạo kết nối MQTT
         const client = mqtt.connect(brokerUrl, options);
 
-        client.on('connect', () => {
-            document.getElementById('connection-status').innerText = 'Đã kết nối MQTT';
-            document.getElementById('connection-status').className = 'px-3 py-1 bg-emerald-600 text-white rounded-full text-sm font-semibold';
+        let targetStore = JSON.parse(localStorage.getItem('infucare_target_store')) || {};
+        let telemetryStore = {};
+        let infusionHistory = JSON.parse(localStorage.getItem('infucare_infusion_history')) || [];
+        let activeSessions = JSON.parse(localStorage.getItem('infucare_active_sessions')) || {};
+        
+        const ADMIN_PASSWORD = "tamcamau2026";
+        let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
+
+        function getDepartments() {
+            let depts = JSON.parse(localStorage.getItem('infucare_departments'));
+            if (!depts || depts.length === 0) {
+                depts = [
+                    { key: 'KHOA_A', name: 'Khoa A' },
+                    { key: 'KHOA_B', name: 'Khoa B' },
+                    { key: 'KHOA_C', name: 'Khoa C' }
+                ];
+                localStorage.setItem('infucare_departments', JSON.stringify(depts));
+            }
+            return depts;
+        }
+
+        let currentDept = localStorage.getItem('infucare_current_dept');
+        let deptsList = getDepartments();
+        if (!currentDept || !deptsList.some(d => d.key === currentDept)) {
+            currentDept = deptsList[0].key;
+            localStorage.setItem('infucare_current_dept', currentDept);
+        }
+
+        let currentView = localStorage.getItem('infucare_view_mode') || 'grid';
+
+        document.addEventListener("DOMContentLoaded", () => {
+            updateAdminUIState();
+            renderDeptTabs();
+            renderApp();
+        });
+
+        function toggleAdminAuth() {
+            if (isAdminLoggedIn) {
+                if (confirm("Bạn có muốn đăng xuất quyền quản trị không?")) {
+                    isAdminLoggedIn = false;
+                    sessionStorage.removeItem('infucare_admin_auth');
+                    updateAdminUIState();
+                    renderApp();
+                    alert("Đã đăng xuất quyền quản trị.");
+                }
+            } else {
+                let pass = prompt("Nhập mật khẩu quản trị hệ thống:");
+                if (pass === ADMIN_PASSWORD) {
+                    isAdminLoggedIn = true;
+                    sessionStorage.setItem('infucare_admin_auth', 'true');
+                    updateAdminUIState();
+                    renderApp();
+                    alert("Đăng nhập quản trị thành công!");
+                } else if (pass !== null) {
+                    alert("Mật khẩu không chính xác!");
+                }
+            }
+        }
+
+        function updateAdminUIState() {
+            const btnAuth = document.getElementById('btn-admin-auth');
+            const btnAddDev = document.getElementById('btn-add-dev-main');
             
-            // Subcribe tất cả các topic wildcard để nhận dữ liệu từ mọi thiết bị (dev1, dev2, ..., dev10...)
-            client.subscribe('drip_monitor/#', (err) => {
-                if (!err) console.log("Đã đăng ký topic drip_monitor/# thành công!");
+            if (isAdminLoggedIn) {
+                btnAuth.innerText = "🔓 Admin";
+                btnAuth.classList.add('logged-in');
+                if(btnAddDev) btnAddDev.style.display = "flex";
+            } else {
+                btnAuth.innerText = "🔒 Admin";
+                btnAuth.classList.remove('logged-in');
+                if(btnAddDev) btnAddDev.style.display = "none";
+            }
+        }
+
+        function renderDeptTabs() {
+            let depts = getDepartments();
+            let html = '';
+            depts.forEach(d => {
+                let isActive = d.key === currentDept ? 'active' : '';
+                let deleteBtn = (isAdminLoggedIn && depts.length > 1) ? `<button class="tab-delete-icon" title="Xóa khoa" onclick="removeDept('${d.key}', event)">🗑</button>` : '';
+                html += `
+                    <div class="tab-wrapper ${isActive}">
+                        <button class="tab-btn" onclick="switchDept('${d.key}')">${d.name}</button>
+                        ${deleteBtn}
+                    </div>
+                `;
             });
-        });
-
-        client.on('error', (err) => {
-            console.error('Lỗi kết nối MQTT: ', err);
-            document.getElementById('connection-status').innerText = 'Lỗi kết nối';
-            document.getElementById('connection-status').className = 'px-3 py-1 bg-rose-600 text-white rounded-full text-sm font-semibold';
-        });
-
-        // Nhận dữ liệu từ MQTT
-        client.on('message', (topic, payload) => {
-            const message = payload.toString();
-            const segments = topic.split('/');
-            if (segments.length < 3) return;
-
-            const devId = segments[1]; // vd: dev1, dev10...
-            const property = segments[2]; // flow, target, infused, limit_ml, status, battery
-
-            if (!devicesMap[devId]) {
-                // Khởi tạo mặc định nếu thiết bị mới xuất hiện
-                devicesMap[devId] = {
-                    id: devId,
-                    name: `THIẾT BỊ (${devId.toUpperCase()})`,
-                    version: devId === 'dev10' ? "V3" : "V2",
-                    location: `Giường ${devId.replace('dev', '')}`,
-                    flow: 0,
-                    target: 40,
-                    infused: "0.0",
-                    limit_ml: 500,
-                    status: "CONNECTED",
-                    battery: "95"
-                };
+            if (isAdminLoggedIn) {
+                html += `<button class="btn-add-dept" style="display:inline-block;" onclick="addNewDept()">+ Khoa</button>`;
             }
-
-            // Cập nhật giá trị tương ứng
-            if (property === 'flow') devicesMap[devId].flow = parseInt(message) || 0;
-            else if (property === 'target') devicesMap[devId].target = parseInt(message) || 40;
-            else if (property === 'infused') devicesMap[devId].infused = message;
-            else if (property === 'limit_ml') devicesMap[devId].limit_ml = message;
-            else if (property === 'status') devicesMap[devId].status = message;
-            else if (property === 'battery') devicesMap[devId].battery = message;
-
-            // Render lại toàn bộ danh sách thiết bị
-            renderDashboard();
-        });
-
-        // Hàm định dạng trạng thái và màu sắc hiển thị
-        function formatStatusText(statusStr) {
-            if (!statusStr || statusStr === "CONNECTED") return { text: "Đã kết nối", bg: "bg-slate-100 text-slate-700 border-slate-200" };
-            if (statusStr === "NORMAL") return { text: "Đang truyền dịch bình thường", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-            if (statusStr === "EXCEEDED") return { text: "⚠️ Cảnh báo: Quá tốc độ dòng!", bg: "bg-amber-50 text-amber-700 border-amber-200" };
-            if (statusStr === "STOPPED") return { text: "⚠️ Dừng chảy / Tắt dịch (Đã khóa kẹp)", bg: "bg-orange-50 text-orange-700 border-orange-200" };
-            if (statusStr === "AIR_ALARM") return { text: "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)", bg: "bg-rose-50 text-rose-700 border-rose-200 animate-pulse" };
-            if (statusStr === "COMPLETED") return { text: "✅ Hoàn thành thể tích định mức (Đã khóa)", bg: "bg-blue-50 text-blue-700 border-blue-200" };
-            if (statusStr === "BELOW") return { text: "⚠️ Tốc độ thấp hơn y lệnh", bg: "bg-amber-50 text-amber-700 border-amber-200" };
-            return { text: statusStr, bg: "bg-slate-100 text-slate-700 border-slate-200" };
+            document.getElementById('dept-tabs-container').innerHTML = html;
         }
 
-        // Hàm xóa thiết bị an toàn bằng ID cố định (Không bị dịch mảng/nhảy thiết bị)
-        function deleteDevice(devId) {
-            if (confirm(`Bạn có chắc muốn xóa/reset bảng theo dõi của ${devId}?`)) {
-                client.publish(`drip_monitor/${devId}/status`, "", { retained: true });
-                delete devicesMap[devId];
-                renderDashboard();
+        function addNewDept() {
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị trước!");
+            let deptName = prompt("Nhập tên khoa mới (ví dụ: Khoa Cấp Cứu, Khoa Nhi...):");
+            if (!deptName || deptName.trim() === "") return;
+            
+            let key = 'KHOA_' + Date.now();
+            let depts = getDepartments();
+            depts.push({ key: key, name: deptName.trim() });
+            localStorage.setItem('infucare_departments', JSON.stringify(depts));
+            
+            switchDept(key);
+        }
+
+        function removeDept(deptKey, event) {
+            event.stopPropagation();
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị trước!");
+            let depts = getDepartments();
+            if (depts.length <= 1) {
+                alert("Cần duy trì ít nhất một khoa trong hệ thống!");
+                return;
+            }
+            if (confirm("Bạn có chắc chắn muốn xóa khoa này cùng toàn bộ thiết bị trong khoa không?")) {
+                let filtered = depts.filter(d => d.key !== deptKey);
+                localStorage.setItem('infucare_departments', JSON.stringify(filtered));
+                
+                if (currentDept === deptKey) {
+                    currentDept = filtered[0].key;
+                    localStorage.setItem('infucare_current_dept', currentDept);
+                }
+                renderDeptTabs();
+                renderApp();
             }
         }
 
-        // Render toàn bộ giao diện danh sách thiết bị
-        function renderDashboard() {
-            const container = document.getElementById('devices-container');
-            container.innerHTML = '';
+        function getDeviceCount() {
+            return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
+        }
 
-            const devIds = Object.keys(devicesMap);
-            if (devIds.length === 0) {
-                container.innerHTML = `<div class="col-span-full text-center text-slate-500 py-12">Chưa có thiết bị nào kết nối trực tuyến.</div>`;
+        function getGlobalDeviceIndex(deptKey, localIndex) {
+            return localIndex;
+        }
+
+        function getCurrentDeptName() {
+            let depts = getDepartments();
+            let d = depts.find(x => x.key === currentDept);
+            return d ? d.name : 'Khoa';
+        }
+
+        function updateViewButtonsActiveState() {
+            document.getElementById('btn-grid').classList.remove('active-mode');
+            document.getElementById('btn-table').classList.remove('active-mode');
+            document.getElementById('btn-compact').classList.remove('active-mode');
+            document.getElementById('btn-history').classList.remove('active-mode');
+
+            if (currentView === 'grid') {
+                document.getElementById('btn-grid').classList.add('active-mode');
+            } else if (currentView === 'table') {
+                document.getElementById('btn-table').classList.add('active-mode');
+            } else if (currentView === 'compact') {
+                document.getElementById('btn-compact').classList.add('active-mode');
+            } else if (currentView === 'history') {
+                document.getElementById('btn-history').classList.add('active-mode');
+            }
+        }
+
+        function renderApp() {
+            renderDeptTabs();
+            updateViewButtonsActiveState();
+            let count = getDeviceCount();
+            let deptName = getCurrentDeptName();
+
+            if (currentView === 'history') {
+                renderHistoryView();
                 return;
             }
 
-            devIds.forEach(devId => {
-                const dev = devicesMap[devId];
-                const statusInfo = formatStatusText(dev.status);
+            if (count === 0) {
+                let addBtnHtml = isAdminLoggedIn ? `<button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto; display: flex;">+ Thêm Thiết Bị</button>` : `<p style="color: var(--text-muted); font-size: 13px;">Chế độ chỉ xem. Đăng nhập Quản trị để thêm thiết bị.</p>`;
+                document.getElementById('main-content').innerHTML = `
+                    <div style="text-align: center; padding: 30px 15px; background: var(--card-bg); border-radius: 12px; border: 1.5px solid var(--card-border);">
+                        <h3 style="color: var(--text-muted); margin-bottom: 6px; font-size: 15px;">Chưa có thiết bị nào trong ${deptName}</h3>
+                        <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 12px;">Theo dõi trực tuyến các giường bệnh qua MQTT.</p>
+                        ${addBtnHtml}
+                    </div>
+                `;
+                return;
+            }
 
-                const cardHTML = `
-                    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 flex flex-col justify-between transition-all hover:shadow-xl">
-                        <!-- Card Header -->
-                        <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
-                            <div class="flex items-center space-x-2">
-                                <h2 class="text-lg font-bold text-slate-900">${dev.name}</h2>
-                                <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded">${dev.version}</span>
+            if (currentView === 'grid' || currentView === 'compact') {
+                renderGridView();
+            } else {
+                renderTableView();
+            }
+            restoreTelemetryToUI();
+        }
+
+        // HÀM TRẠNG THÁI HIỂN THỊ CHUẨN XÁC THEO LOGIC V2 VÀ V3
+        function formatStatusText(statusStr, devVer = 'V3') {
+            if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
+            if (statusStr === "NORMAL") return "Đang truyền";
+            if (statusStr === "EXCEEDED") return "⚠️ Cảnh báo: Quá tốc độ dòng!";
+            if (statusStr === "STOPPED") {
+                return (devVer === 'V3') ? "🚨 CẢNH BÁO BỌT KHÍ / DỪNG (Đã khóa kẹp)" : "⚠️ Dừng chảy / Tắt dịch!";
+            }
+            if (statusStr === "AIR_ALARM") {
+                return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)";
+            }
+            if (statusStr === "COMPLETED") {
+                return (devVer === 'V3') ? "✅ HOÀN THÀNH LIMIT (Đã khóa servo)" : "✅ Hoàn thành định mức!";
+            }
+            if (statusStr === "BELOW") return "⚠️ Tốc độ thấp hơn y lệnh";
+            if (statusStr === "DISCONNECTED") return "Offline";
+            return statusStr;
+        }
+
+        function renderGridView() {
+            let count = getDeviceCount();
+            let gridClass = (currentView === 'compact') ? 'device-grid compact-view' : 'device-grid';
+            
+            let html = `<div class="${gridClass}">`;
+            for (let i = 1; i <= count; i++) {
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
+                let devVer = localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3'; 
+                let verClass = (devVer === 'V2') ? 'v2' : 'v3';
+                
+                let deleteBtnHtml = isAdminLoggedIn ? `<button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button>` : '';
+                let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
+
+                let savedTarget = (targetStore[devTopicId] && targetStore[devTopicId].target) ? targetStore[devTopicId].target : '40';
+                let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
+
+                html += `
+                    <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}" data-ver="${devVer}">
+                        <div class="device-header">
+                            <span class="device-title">THIẾT BỊ ${globalId} (${devTopicId}) <span class="version-tag ${verClass}">${devVer}</span></span>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span class="battery-badge" id="battery-${devTopicId}">🔋 --%</span>
+                                ${deleteBtnHtml}
                             </div>
-                            <div class="flex items-center space-x-3">
-                                <span class="text-xs font-medium px-2.5 py-1 bg-slate-100 rounded-full text-slate-600">🔋 ${dev.battery}%</span>
-                                <button onclick="deleteDevice('${dev.id}')" class="text-slate-400 hover:text-rose-600 transition-colors p-1" title="Xóa thiết bị">
-                                    🗑️
-                                </button>
+                        </div>
+                        
+                        <div class="bed-assign-row">
+                            <label>VỊ TRÍ:</label>
+                            <input type="text" class="bed-input" id="bedname-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMapping('${i}')" placeholder="Giường..." style="${inputStyle}">
+                        </div>
+
+                        <div class="metric-box">
+                            <div class="metric-label">TỐC ĐỘ THỰC TẾ:</div>
+                            <div class="metric-value-row">
+                                <span class="metric-value" id="flow-${devTopicId}">0</span>
+                                <span class="metric-unit">gtt/m</span>
                             </div>
                         </div>
 
-                        <!-- Location -->
-                        <div class="mb-4 flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <span class="text-sm font-medium text-slate-600">VỊ TRÍ:</span>
-                            <span class="font-bold text-indigo-600 text-base">${dev.location}</span>
-                        </div>
-
-                        <!-- Grid Metrics -->
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <span class="text-xs font-semibold text-slate-500 block mb-1">TỐC ĐỘ THỰC TẾ</span>
-                                <div class="flex items-baseline space-x-1">
-                                    <span class="text-3xl font-black text-rose-600">${dev.flow}</span>
-                                    <span class="text-xs text-slate-500 font-medium">gtt/m</span>
-                                </div>
-                            </div>
-                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <span class="text-xs font-semibold text-slate-500 block mb-1">TỐC ĐỘ Y LỆNH</span>
-                                <div class="flex items-baseline space-x-1">
-                                    <span class="text-3xl font-black text-indigo-600">${dev.target}</span>
-                                    <span class="text-xs text-slate-500 font-medium">gtt/m</span>
-                                </div>
+                        <div class="metric-box">
+                            <div class="metric-label">TỐC ĐỘ Y LỆNH:</div>
+                            <div class="metric-value-row">
+                                <span class="metric-value target" id="target-${devTopicId}">${savedTarget}</span>
+                                <span class="metric-unit">gtt/m</span>
                             </div>
                         </div>
 
-                        <!-- Infused & Limit -->
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4 flex justify-between items-center">
-                            <div>
-                                <span class="text-xs font-semibold text-slate-500 block mb-1">TỔNG THỂ TÍCH (ĐÃ TRUYỀN / LIMIT)</span>
-                                <span class="text-lg font-bold text-emerald-600">${dev.infused} <span class="text-xs text-slate-500 font-normal">/ ${dev.limit_ml} ml</span></span>
+                        <div class="metric-box">
+                            <div class="metric-label">TỔNG ML:</div>
+                            <div class="metric-value-row">
+                                <span class="metric-value" style="font-size: 13px;"><span id="infval-${devTopicId}">0</span>/<span id="limit-${devTopicId}">${savedLimit}</span></span>
+                                <span class="metric-unit">ml</span>
                             </div>
                         </div>
 
-                        <!-- Status Alert Bar -->
-                        <div class="p-3 rounded-xl border text-sm font-semibold text-center ${statusInfo.bg}">
-                            ${statusInfo.text}
+                        <div class="device-status-footer" id="status-${devTopicId}">
+                            Offline
                         </div>
                     </div>
                 `;
-                container.innerHTML += cardHTML;
+            }
+            html += '</div>';
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function renderTableView() {
+            let count = getDeviceCount();
+            let html = `
+                <div class="device-table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>TB</th>
+                                <th>Phiên bản</th>
+                                <th>Vị trí</th>
+                                <th>Pin</th>
+                                <th>Tốc độ thực tế</th>
+                                <th>Tốc độ y lệnh</th>
+                                <th>Truyền/Giới hạn</th>
+                                <th>Trạng thái hệ thống</th>
+                                <th style="text-align: center;">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            for (let i = 1; i <= count; i++) {
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `G${i}`;
+                let devVer = localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3';
+                let verClass = (devVer === 'V2') ? 'v2' : 'v3';
+                
+                let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
+                let deleteTd = isAdminLoggedIn ? `<td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button></td>` : `<td style="text-align: center; color: var(--text-muted); font-size: 10px;">-</td>`;
+
+                let savedTarget = (targetStore[devTopicId] && targetStore[devTopicId].target) ? targetStore[devTopicId].target : '40';
+                let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
+
+                html += `
+                    <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}" data-ver="${devVer}">
+                        <td style="font-weight: bold; color: var(--primary-blue);">TB ${globalId}</td>
+                        <td><span class="version-tag ${verClass}">${devVer}</span></td>
+                        <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')" style="${inputStyle}; width: 65px;"></td>
+                        <td><span id="battery-tbl-${devTopicId}" class="battery-badge" style="background:none; padding:0;">--%</span></td>
+                        <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span></td>
+                        <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">${savedTarget}</span></td>
+                        <td><span id="infval-tbl-${devTopicId}">0</span>/<span id="limit-tbl-${devTopicId}">${savedLimit}</span></td>
+                        <td id="status-tbl-${devTopicId}" style="color: var(--danger-red); font-weight: bold;">Offline</td>
+                        ${deleteTd}
+                    </tr>
+                `;
+            }
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function renderHistoryView() {
+            let html = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3 style="margin: 0; font-size: 14px; color: var(--text-main);">📋 Lịch sử ca truyền (Phục vụ nhập HIS)</h3>
+                    <button class="btn-clear-history" onclick="clearHistory()">🗑️ Xóa lịch sử (Admin)</button>
+                </div>
+                <div class="device-table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Thời gian hoàn thành</th>
+                                <th>Vị trí (Giường)</th>
+                                <th>Thiết bị</th>
+                                <th>Bắt đầu</th>
+                                <th>Kết thúc</th>
+                                <th>Tốc độ y lệnh</th>
+                                <th>Đã truyền</th>
+                                <th style="text-align: center;">Thao tác HIS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            if (infusionHistory.length === 0) {
+                html += `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">Chưa có ca truyền nào hoàn thành.</td></tr>`;
+            } else {
+                let sortedHistory = [...infusionHistory].reverse();
+                sortedHistory.forEach((item, index) => {
+                    html += `
+                        <tr>
+                            <td style="color: var(--text-muted); font-size: 11px;">${item.timestamp}</td>
+                            <td style="font-weight: bold; color: var(--primary-blue);">${item.bed}</td>
+                            <td>${item.devId}</td>
+                            <td>${item.startTime}</td>
+                            <td>${item.endTime}</td>
+                            <td style="color: var(--accent-blue); font-weight: bold;">${item.target} gtt/p</td>
+                            <td style="color: var(--neon-green); font-weight: bold;">${item.infused} / ${item.limit} ml</td>
+                            <td style="text-align: center;">
+                                <button class="btn-copy-his" onclick="copyHisData('${item.startTime}', '${item.endTime}', '${item.target}')">📋 Copy HIS</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function copyHisData(start, end, target) {
+            let textToCopy = `Bắt đầu: ${start} | Kết thúc: ${end} | Y lệnh: ${target} gtt/p`;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert(`Đã copy vào bộ nhớ tạm:\n${textToCopy}\n\nBạn chỉ cần mở phần mềm HIS và bấm Ctrl + V vào ô nhập liệu!`);
+            }).catch(err => {
+                alert("Không thể copy tự động, vui lòng copy thủ công: " + textToCopy);
             });
         }
+
+        function clearHistory() {
+            if (!isAdminLoggedIn) {
+                alert("Vui lòng đăng nhập quyền Quản trị (Admin) để xóa lịch sử!");
+                toggleAdminAuth();
+                return;
+            }
+            if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử ca truyền không?")) {
+                infusionHistory = [];
+                localStorage.removeItem('infucare_infusion_history');
+                renderHistoryView();
+                alert("Đã xóa toàn bộ lịch sử ca truyền thành công.");
+            }
+        }
+
+        function switchDept(deptKey) {
+            currentDept = deptKey;
+            localStorage.setItem('infucare_current_dept', deptKey);
+            renderApp();
+        }
+
+        function addNewDevice() {
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
+            let choice = prompt("Chọn phiên bản thiết bị muốn thêm:\n1. Thiết bị V2 cũ\n2. Thiết bị V3 mới (Có cảm biến bọt khí & Khóa servo)\n\nNhập số (1 hoặc 2):", "2");
+            if (choice === null) return;
+            
+            let devVer = (choice.trim() === '1') ? 'V2' : 'V3';
+            let count = getDeviceCount() + 1;
+            
+            localStorage.setItem(`infucare_device_count_${currentDept}`, count);
+            localStorage.setItem(`infucare_${currentDept}_dev_${count}_ver`, devVer);
+            renderApp();
+        }
+
+        function removeDevice(index) {
+            if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
+            let count = getDeviceCount();
+            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này không?`)) {
+                for (let i = index; i < count; i++) {
+                    let nextBed = localStorage.getItem(`infucare_${currentDept}_dev_${i+1}_bed`) || `G${i+1}`;
+                    let nextVer = localStorage.getItem(`infucare_${currentDept}_dev_${i+1}_ver`) || 'V3';
+                    localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, nextBed);
+                    localStorage.setItem(`infucare_${currentDept}_dev_${i}_ver`, nextVer);
+                }
+                localStorage.removeItem(`infucare_${currentDept}_dev_${count}_bed`);
+                localStorage.removeItem(`infucare_${currentDept}_dev_${count}_ver`);
+                localStorage.setItem(`infucare_device_count_${currentDept}`, count - 1);
+                renderApp();
+            }
+        }
+
+        function setViewMode(mode) {
+            currentView = mode;
+            localStorage.setItem('infucare_view_mode', mode);
+            renderApp();
+        }
+
+        function saveBedMapping(i) {
+            if (!isAdminLoggedIn) return;
+            let val = document.getElementById(`bedname-${currentDept}-${i}`).value;
+            localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
+        }
+
+        function saveBedMappingTable(i) {
+            if (!isAdminLoggedIn) return;
+            let val = document.getElementById(`bedname-tbl-${currentDept}-${i}`).value;
+            localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
+        }
+
+        function updateBatteryUI(devTopicId, val, isOffline = false) {
+            let elGrid = document.getElementById(`battery-${devTopicId}`);
+            let elTbl = document.getElementById(`battery-tbl-${devTopicId}`);
+
+            if (isOffline) {
+                if(elGrid) {
+                    elGrid.innerText = `🔋 --%`;
+                    elGrid.classList.remove('battery-badge-low');
+                }
+                if(elTbl) {
+                    elTbl.innerText = `--%`;
+                    elTbl.classList.remove('battery-badge-low');
+                    elTbl.style.padding = "0";
+                }
+                return;
+            }
+
+            let pct = parseInt(val);
+            let isLow = (pct <= 10);
+
+            if(elGrid) {
+                elGrid.innerText = `🔋 ${val}%`;
+                if(isLow) elGrid.classList.add('battery-badge-low');
+                else elGrid.classList.remove('battery-badge-low');
+            }
+
+            if(elTbl) {
+                elTbl.innerText = `${val}%`;
+                if(isLow) {
+                    elTbl.classList.add('battery-badge-low');
+                    elTbl.style.padding = "2px 6px";
+                } else {
+                    elTbl.classList.remove('battery-badge-low');
+                    elTbl.style.padding = "0";
+                }
+            }
+        }
+
+        function handleDeviceOfflineState(devTopicId) {
+            updateBatteryUI(devTopicId, null, true);
+
+            if (currentView === 'grid' || currentView === 'compact') {
+                let footer = document.getElementById(`status-${devTopicId}`);
+                if(footer) {
+                    footer.innerText = "Offline";
+                    footer.className = "device-status-footer";
+                }
+                let flowEl = document.getElementById(`flow-${devTopicId}`);
+                if(flowEl) {
+                    flowEl.classList.remove('danger', 'warning-amber');
+                }
+            } else if (currentView === 'table') {
+                let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
+                if(statTbl) {
+                    statTbl.innerText = "Offline";
+                    statTbl.style.color = "var(--danger-red)";
+                }
+            }
+        }
+
+        function getBedNameByTopicId(devTopicId) {
+            let count = getDeviceCount();
+            for (let i = 1; i <= count; i++) {
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let topicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                if (topicId === devTopicId) {
+                    return localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
+                }
+            }
+            return devTopicId;
+        }
+
+        function getDeviceVersionByTopicId(devTopicId) {
+            let count = getDeviceCount();
+            for (let i = 1; i <= count; i++) {
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let topicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                if (topicId === devTopicId) {
+                    return localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3';
+                }
+            }
+            return 'V3';
+        }
+
+        function updateDeviceUI(devTopicId, data) {
+            if (!data) return;
+
+            let currentStatus = data.statusText || "CONNECTED";
+            if (currentStatus === "DISCONNECTED") {
+                handleDeviceOfflineState(devTopicId);
+                return;
+            }
+
+            let devVer = getDeviceVersionByTopicId(devTopicId);
+            let isDanger = (currentStatus === "EXCEEDED" || currentStatus === "STOPPED" || currentStatus === "AIR_ALARM");
+            let isBelow = (currentStatus === "BELOW");
+
+            if (currentView === 'grid' || currentView === 'compact') {
+                if (data.battery !== undefined) updateBatteryUI(devTopicId, data.battery, false);
+                
+                if (data.flow !== undefined) {
+                    let el = document.getElementById(`flow-${devTopicId}`);
+                    if(el) {
+                        el.innerText = data.flow;
+                        el.classList.remove('danger', 'warning-amber');
+                        if (isDanger) el.classList.add('danger');
+                        else if (isBelow) el.classList.add('warning-amber');
+                    }
+                }
+                if (data.infused !== undefined) {
+                    let el = document.getElementById(`infval-${devTopicId}`);
+                    if(el) el.innerText = data.infused;
+                }
+                if (data.target !== undefined) {
+                    let el = document.getElementById(`target-${devTopicId}`);
+                    if(el) el.innerText = data.target;
+                }
+                if (data.limit !== undefined) {
+                    let el = document.getElementById(`limit-${devTopicId}`);
+                    if(el) el.innerText = data.limit;
+                }
+                if (data.statusText !== undefined) {
+                    let footer = document.getElementById(`status-${devTopicId}`);
+                    if(footer) {
+                        footer.innerText = formatStatusText(data.statusText, devVer);
+                        footer.className = "device-status-footer";
+                        if (currentStatus === "CONNECTED" || currentStatus === "NORMAL" || currentStatus === "COMPLETED") {
+                            footer.classList.add('active');
+                        } else if (currentStatus === "BELOW") {
+                            footer.classList.add('warning-mild');
+                        } else if (isDanger) {
+                            footer.classList.add('warning');
+                        }
+                    }
+                }
+            } else if (currentView === 'table') {
+                if (data.battery !== undefined) updateBatteryUI(devTopicId, data.battery, false);
+                
+                if (data.flow !== undefined) {
+                    let el = document.getElementById(`flow-tbl-${devTopicId}`);
+                    if(el) {
+                        el.innerText = data.flow;
+                        if (isDanger) el.style.color = "var(--danger-red)";
+                        else if (isBelow) el.style.color = "var(--warning-amber)";
+                        else el.style.color = "var(--neon-green)";
+                    }
+                }
+                if (data.infused !== undefined) {
+                    let el = document.getElementById(`infval-tbl-${devTopicId}`);
+                    if(el) el.innerText = data.infused;
+                }
+                if (data.target !== undefined) {
+                    let el = document.getElementById(`target-tbl-${devTopicId}`);
+                    if(el) el.innerText = data.target;
+                }
+                if (data.limit !== undefined) {
+                    let el = document.getElementById(`limit-tbl-${devTopicId}`);
+                    if(el) el.innerText = data.limit;
+                }
+                if (data.statusText !== undefined) {
+                    let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
+                    if(statTbl) {
+                        statTbl.innerText = formatStatusText(data.statusText, devVer);
+                        if (currentStatus === "CONNECTED" || currentStatus === "NORMAL" || currentStatus === "COMPLETED") {
+                            statTbl.style.color = "var(--neon-green)";
+                        } else if (currentStatus === "BELOW") {
+                            statTbl.style.color = "var(--warning-amber)";
+                        } else {
+                            statTbl.style.color = "var(--danger-red)";
+                        }
+                    }
+                }
+            }
+        }
+
+        function restoreTelemetryToUI() {
+            let count = getDeviceCount();
+            for (let i = 1; i <= count; i++) {
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                let data = telemetryStore[devTopicId];
+                if (!data) {
+                    handleDeviceOfflineState(devTopicId);
+                    continue;
+                }
+                updateDeviceUI(devTopicId, data);
+            }
+        }
+
+        client.on('connect', () => {
+            const badge = document.getElementById('connection-status');
+            badge.innerText = 'ONLINE';
+            badge.classList.add('online');
+            
+            client.subscribe('drip_monitor/#');
+            client.subscribe('esp32/#');
+            client.subscribe('infucare/#');
+        });
+
+        client.on('offline', () => {
+            const badge = document.getElementById('connection-status');
+            badge.innerText = 'OFFLINE';
+            badge.classList.remove('online');
+        });
+
+        function formatShortTime() {
+            let now = new Date();
+            let hours = String(now.getHours()).padStart(2, '0');
+            let minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+
+        client.on('message', (topic, payload) => {
+            const message = payload.toString();
+            const parts = topic.split('/');
+            
+            if (parts.length >= 3) {
+                let devTopicId = parts[1];
+                let metric = parts[2];
+
+                if (parts[1] === 'flow' || parts[1] === 'target' || parts[1] === 'status' || parts[1] === 'battery') {
+                    metric = parts[1];
+                    devTopicId = parts[2];
+                }
+
+                if (!devTopicId) return;
+
+                if (!telemetryStore[devTopicId]) telemetryStore[devTopicId] = {};
+                if (!targetStore[devTopicId]) targetStore[devTopicId] = {};
+
+                if (metric === 'flow') telemetryStore[devTopicId].flow = message;
+                else if (metric === 'infused' || metric === 'inf') telemetryStore[devTopicId].infused = message;
+                else if (metric === 'target' || metric === 'tgt') {
+                    telemetryStore[devTopicId].target = message;
+                    targetStore[devTopicId].target = message;
+                    localStorage.setItem('infucare_target_store', JSON.stringify(targetStore));
+                }
+                else if (metric === 'limit_ml' || metric === 'limit') {
+                    telemetryStore[devTopicId].limit = message;
+                    targetStore[devTopicId].limit = message;
+                    localStorage.setItem('infucare_target_store', JSON.stringify(targetStore));
+                }
+                else if (metric === 'status') {
+                    let oldStatus = telemetryStore[devTopicId].statusText;
+                    telemetryStore[devTopicId].statusText = message;
+
+                    let nowStr = formatShortTime();
+                    let fullDateStr = new Date().toLocaleDateString('vi-VN') + ' ' + nowStr;
+
+                    if (message === "NORMAL" && oldStatus !== "NORMAL") {
+                        activeSessions[devTopicId] = {
+                            startTime: nowStr,
+                            fullStart: fullDateStr
+                        };
+                        localStorage.setItem('infucare_active_sessions', JSON.stringify(activeSessions));
+                    }
+
+                    if ((message === "COMPLETED" || message === "STOPPED" || message === "AIR_ALARM") && oldStatus !== message) {
+                        let session = activeSessions[devTopicId] || { startTime: nowStr };
+                        let bedName = getBedNameByTopicId(devTopicId);
+                        let targetVal = telemetryStore[devTopicId].target || (targetStore[devTopicId] ? targetStore[devTopicId].target : '40');
+                        let infusedVal = telemetryStore[devTopicId].infused || '0';
+                        let limitVal = telemetryStore[devTopicId].limit || (targetStore[devTopicId] ? targetStore[devTopicId].limit : '500');
+
+                        let historyItem = {
+                            timestamp: fullDateStr,
+                            bed: bedName,
+                            devId: devTopicId,
+                            startTime: session.startTime,
+                            endTime: nowStr,
+                            target: targetVal,
+                            infused: infusedVal,
+                            limit: limitVal
+                        };
+
+                        infusionHistory.push(historyItem);
+                        localStorage.setItem('infucare_infusion_history', JSON.stringify(infusionHistory));
+                        
+                        delete activeSessions[devTopicId];
+                        localStorage.setItem('infucare_active_sessions', JSON.stringify(activeSessions));
+                    }
+                }
+                else if (metric === 'battery' || metric === 'bat') telemetryStore[devTopicId].battery = message;
+
+                updateDeviceUI(devTopicId, telemetryStore[devTopicId]);
+            }
+        });
     </script>
 </body>
 </html>
