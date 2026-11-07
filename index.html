@@ -650,12 +650,21 @@
             }
         }
 
-        function getDeviceCount() {
-            return parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
-        }
-
-        function getGlobalDeviceIndex(deptKey, localIndex) {
-            return localIndex;
+        function getDeviceList() {
+            let list = JSON.parse(localStorage.getItem(`infucare_device_list_${currentDept}`));
+            if (!list) {
+                // Khởi tạo mặc định nếu chưa có danh sách (tương thích ngược bản cũ 1->count)
+                let count = parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
+                list = [];
+                for (let i = 1; i <= count; i++) {
+                    let globalId = i;
+                    let topicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                    let ver = localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3';
+                    list.push({ id: topicId, ver: ver });
+                }
+                localStorage.setItem(`infucare_device_list_${currentDept}`, JSON.stringify(list));
+            }
+            return list;
         }
 
         function getCurrentDeptName() {
@@ -684,7 +693,7 @@
         function renderApp() {
             renderDeptTabs();
             updateViewButtonsActiveState();
-            let count = getDeviceCount();
+            let devices = getDeviceList();
             let deptName = getCurrentDeptName();
 
             if (currentView === 'history') {
@@ -692,7 +701,7 @@
                 return;
             }
 
-            if (count === 0) {
+            if (devices.length === 0) {
                 let addBtnHtml = isAdminLoggedIn ? `<button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto; display: flex;">+ Thêm Thiết Bị</button>` : `<p style="color: var(--text-muted); font-size: 13px;">Chế độ chỉ xem. Đăng nhập Quản trị để thêm thiết bị.</p>`;
                 document.getElementById('main-content').innerHTML = `
                     <div style="text-align: center; padding: 30px 15px; background: var(--card-bg); border-radius: 12px; border: 1.5px solid var(--card-border);">
@@ -712,47 +721,45 @@
             restoreTelemetryToUI();
         }
 
-        // HÀM TRẠNG THÁI HIỂN THỊ CHUẨN XÁC THEO LOGIC V2 VÀ V3
-       function formatStatusText(statusStr, devVer = 'V3') {
-    if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
-    if (statusStr === "NORMAL") return "Đang truyền";
-    if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
-    if (statusStr === "STOPPED") {
-        return "⚠️ Dừng chảy / Tắt dịch ";
-    }
-    if (statusStr === "AIR_ALARM") {
-        return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)"; // <--- Hiển thị đúng câu này khi có khí
-    }
-    if (statusStr === "COMPLETED") {
-        return "✅ HOÀN THÀNH LIMIT (Đã khóa servo)";
-    }
-    if (statusStr === "BELOW") return "⚠️ Tốc độ thấp ";
-    if (statusStr === "DISCONNECTED") return "Offline";
-    return statusStr;
-}
+        function formatStatusText(statusStr, devVer = 'V3') {
+            if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
+            if (statusStr === "NORMAL") return "Đang truyền";
+            if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
+            if (statusStr === "STOPPED") {
+                return "⚠️ Dừng chảy / Tắt dịch ";
+            }
+            if (statusStr === "AIR_ALARM") {
+                return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)";
+            }
+            if (statusStr === "COMPLETED") {
+                return "✅ HOÀN THÀNH LIMIT (Đã khóa servo)";
+            }
+            if (statusStr === "BELOW") return "⚠️ Tốc độ thấp ";
+            if (statusStr === "DISCONNECTED") return "Offline";
+            return statusStr;
+        }
 
         function renderGridView() {
-            let count = getDeviceCount();
+            let devices = getDeviceList();
             let gridClass = (currentView === 'compact') ? 'device-grid compact-view' : 'device-grid';
             
             let html = `<div class="${gridClass}">`;
-            for (let i = 1; i <= count; i++) {
-                let globalId = getGlobalDeviceIndex(currentDept, i);
-                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
-                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
-                let devVer = localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3'; 
+            devices.forEach((dev, index) => {
+                let devTopicId = dev.id; // vd: dev09, dev10...
+                let devVer = dev.ver || 'V3';
                 let verClass = (devVer === 'V2') ? 'v2' : 'v3';
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_${devTopicId}_bed`) || `Giường ${index + 1}`;
                 
-                let deleteBtnHtml = isAdminLoggedIn ? `<button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button>` : '';
+                let deleteBtnHtml = isAdminLoggedIn ? `<button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice('${devTopicId}')" style="display: inline-block;">🗑️</button>` : '';
                 let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
 
                 let savedTarget = (targetStore[devTopicId] && targetStore[devTopicId].target) ? targetStore[devTopicId].target : '40';
                 let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
 
                 html += `
-                    <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}" data-ver="${devVer}">
+                    <div class="device-card" id="device-ui-${currentDept}-${devTopicId}" data-topicid="${devTopicId}" data-ver="${devVer}">
                         <div class="device-header">
-                            <span class="device-title">THIẾT BỊ ${globalId} (${devTopicId}) <span class="version-tag ${verClass}">${devVer}</span></span>
+                            <span class="device-title">THIẾT BỊ (${devTopicId.toUpperCase()}) <span class="version-tag ${verClass}">${devVer}</span></span>
                             <div style="display: flex; align-items: center; gap: 4px;">
                                 <span class="battery-badge" id="battery-${devTopicId}">🔋 --%</span>
                                 ${deleteBtnHtml}
@@ -761,7 +768,7 @@
                         
                         <div class="bed-assign-row">
                             <label>VỊ TRÍ:</label>
-                            <input type="text" class="bed-input" id="bedname-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMapping('${i}')" placeholder="Giường..." style="${inputStyle}">
+                            <input type="text" class="bed-input" id="bedname-${currentDept}-${devTopicId}" value="${savedBed}" onchange="saveBedMapping('${devTopicId}')" placeholder="Giường..." style="${inputStyle}">
                         </div>
 
                         <div class="metric-box">
@@ -793,13 +800,13 @@
                         </div>
                     </div>
                 `;
-            }
+            });
             html += '</div>';
             document.getElementById('main-content').innerHTML = html;
         }
 
         function renderTableView() {
-            let count = getDeviceCount();
+            let devices = getDeviceList();
             let html = `
                 <div class="device-table-wrapper">
                     <table>
@@ -818,24 +825,23 @@
                         </thead>
                         <tbody>
             `;
-            for (let i = 1; i <= count; i++) {
-                let globalId = getGlobalDeviceIndex(currentDept, i);
-                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
-                let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `G${i}`;
-                let devVer = localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3';
+            devices.forEach((dev, index) => {
+                let devTopicId = dev.id;
+                let devVer = dev.ver || 'V3';
                 let verClass = (devVer === 'V2') ? 'v2' : 'v3';
+                let savedBed = localStorage.getItem(`infucare_${currentDept}_${devTopicId}_bed`) || `G${index + 1}`;
                 
                 let inputStyle = isAdminLoggedIn ? 'pointer-events: auto;' : 'pointer-events: none; background: #f1f5f9;';
-                let deleteTd = isAdminLoggedIn ? `<td style="text-align: center;"><button class="btn-delete" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button></td>` : `<td style="text-align: center; color: var(--text-muted); font-size: 10px;">-</td>`;
+                let deleteTd = isAdminLoggedIn ? `<td style="text-align: center;"><button class="btn-delete" onclick="removeDevice('${devTopicId}')" style="display: inline-block;">🗑️</button></td>` : `<td style="text-align: center; color: var(--text-muted); font-size: 10px;">-</td>`;
 
                 let savedTarget = (targetStore[devTopicId] && targetStore[devTopicId].target) ? targetStore[devTopicId].target : '40';
                 let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
 
                 html += `
-                    <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}" data-ver="${devVer}">
-                        <td style="font-weight: bold; color: var(--primary-blue);">TB ${globalId}</td>
+                    <tr id="device-ui-${currentDept}-${devTopicId}" data-topicid="${devTopicId}" data-ver="${devVer}">
+                        <td style="font-weight: bold; color: var(--primary-blue);">${devTopicId.toUpperCase()}</td>
                         <td><span class="version-tag ${verClass}">${devVer}</span></td>
-                        <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')" style="${inputStyle}; width: 65px;"></td>
+                        <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${devTopicId}" value="${savedBed}" onchange="saveBedMappingTable('${devTopicId}')" style="${inputStyle}; width: 65px;"></td>
                         <td><span id="battery-tbl-${devTopicId}" class="battery-badge" style="background:none; padding:0;">--%</span></td>
                         <td><span id="flow-tbl-${devTopicId}" style="color: var(--neon-green); font-weight: bold;">0</span></td>
                         <td><span id="target-tbl-${devTopicId}" style="color: var(--primary-blue); font-weight: bold;">${savedTarget}</span></td>
@@ -844,7 +850,7 @@
                         ${deleteTd}
                     </tr>
                 `;
-            }
+            });
             html += `
                         </tbody>
                     </table>
@@ -937,30 +943,37 @@
 
         function addNewDevice() {
             if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
-            let choice = prompt("Chọn phiên bản thiết bị muốn thêm:\n1. Thiết bị V2 cũ\n2. Thiết bị V3 mới (Có cảm biến bọt khí & Khóa servo)\n\nNhập số (1 hoặc 2):", "2");
+            let defaultId = prompt("Nhập mã/topic ID thiết bị mới (ví dụ: dev09, dev10, dev11...):", "dev10");
+            if (!defaultId || defaultId.trim() === "") return;
+            defaultId = defaultId.trim().toLowerCase();
+
+            let choice = prompt("Chọn phiên bản thiết bị:\n1. Thiết bị V2 cũ\n2. Thiết bị V3 mới (Cảm biến bọt khí & Khóa servo)\n\nNhập số (1 hoặc 2):", "2");
             if (choice === null) return;
             
             let devVer = (choice.trim() === '1') ? 'V2' : 'V3';
-            let count = getDeviceCount() + 1;
-            
-            localStorage.setItem(`infucare_device_count_${currentDept}`, count);
-            localStorage.setItem(`infucare_${currentDept}_dev_${count}_ver`, devVer);
+            let devices = getDeviceList();
+
+            if (devices.some(d => d.id === defaultId)) {
+                alert(`Thiết bị ${defaultId} đã tồn tại trong khoa này!`);
+                return;
+            }
+
+            devices.push({ id: defaultId, ver: devVer });
+            localStorage.setItem(`infucare_device_list_${currentDept}`, JSON.stringify(devices));
             renderApp();
         }
 
-        function removeDevice(index) {
+        function removeDevice(devTopicId) {
             if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
-            let count = getDeviceCount();
-            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị này không?`)) {
-                for (let i = index; i < count; i++) {
-                    let nextBed = localStorage.getItem(`infucare_${currentDept}_dev_${i+1}_bed`) || `G${i+1}`;
-                    let nextVer = localStorage.getItem(`infucare_${currentDept}_dev_${i+1}_ver`) || 'V3';
-                    localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, nextBed);
-                    localStorage.setItem(`infucare_${currentDept}_dev_${i}_ver`, nextVer);
-                }
-                localStorage.removeItem(`infucare_${currentDept}_dev_${count}_bed`);
-                localStorage.removeItem(`infucare_${currentDept}_dev_${count}_ver`);
-                localStorage.setItem(`infucare_device_count_${currentDept}`, count - 1);
+            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị ${devTopicId} khỏi danh sách theo dõi không?`)) {
+                let devices = getDeviceList();
+                let filtered = devices.filter(d => d.id !== devTopicId);
+                localStorage.setItem(`infucare_device_list_${currentDept}`, JSON.stringify(filtered));
+                
+                // Xóa sạch dữ liệu cache lưu riêng thiết bị đó nếu cần
+                localStorage.removeItem(`infucare_${currentDept}_${devTopicId}_bed`);
+                delete telemetryStore[devTopicId];
+                
                 renderApp();
             }
         }
@@ -971,16 +984,16 @@
             renderApp();
         }
 
-        function saveBedMapping(i) {
+        function saveBedMapping(devTopicId) {
             if (!isAdminLoggedIn) return;
-            let val = document.getElementById(`bedname-${currentDept}-${i}`).value;
-            localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
+            let val = document.getElementById(`bedname-${currentDept}-${devTopicId}`).value;
+            localStorage.setItem(`infucare_${currentDept}_${devTopicId}_bed`, val);
         }
 
-        function saveBedMappingTable(i) {
+        function saveBedMappingTable(devTopicId) {
             if (!isAdminLoggedIn) return;
-            let val = document.getElementById(`bedname-tbl-${currentDept}-${i}`).value;
-            localStorage.setItem(`infucare_${currentDept}_dev_${i}_bed`, val);
+            let val = document.getElementById(`bedname-tbl-${currentDept}-${devTopicId}`).value;
+            localStorage.setItem(`infucare_${currentDept}_${devTopicId}_bed`, val);
         }
 
         function updateBatteryUI(devTopicId, val, isOffline = false) {
@@ -1044,27 +1057,14 @@
         }
 
         function getBedNameByTopicId(devTopicId) {
-            let count = getDeviceCount();
-            for (let i = 1; i <= count; i++) {
-                let globalId = getGlobalDeviceIndex(currentDept, i);
-                let topicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
-                if (topicId === devTopicId) {
-                    return localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
-                }
-            }
-            return devTopicId;
+            let bed = localStorage.getItem(`infucare_${currentDept}_${devTopicId}_bed`);
+            return bed ? bed : devTopicId;
         }
 
         function getDeviceVersionByTopicId(devTopicId) {
-            let count = getDeviceCount();
-            for (let i = 1; i <= count; i++) {
-                let globalId = getGlobalDeviceIndex(currentDept, i);
-                let topicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
-                if (topicId === devTopicId) {
-                    return localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3';
-                }
-            }
-            return 'V3';
+            let devices = getDeviceList();
+            let found = devices.find(d => d.id === devTopicId);
+            return found ? found.ver : 'V3';
         }
 
         function updateDeviceUI(devTopicId, data) {
@@ -1159,17 +1159,16 @@
         }
 
         function restoreTelemetryToUI() {
-            let count = getDeviceCount();
-            for (let i = 1; i <= count; i++) {
-                let globalId = getGlobalDeviceIndex(currentDept, i);
-                let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+            let devices = getDeviceList();
+            devices.forEach(dev => {
+                let devTopicId = dev.id;
                 let data = telemetryStore[devTopicId];
                 if (!data) {
                     handleDeviceOfflineState(devTopicId);
-                    continue;
+                    return;
                 }
                 updateDeviceUI(devTopicId, data);
-            }
+            });
         }
 
         client.on('connect', () => {
