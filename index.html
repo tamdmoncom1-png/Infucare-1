@@ -713,23 +713,23 @@
         }
 
         // HÀM TRẠNG THÁI HIỂN THỊ CHUẨN XÁC THEO LOGIC V2 VÀ V3
-        function formatStatusText(statusStr, devVer = 'V3') {
-            if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
-            if (statusStr === "NORMAL") return "Đang truyền";
-            if (statusStr === "EXCEEDED") return "⚠️ Cảnh báo: Quá tốc độ dòng!";
-            if (statusStr === "STOPPED") {
-                return (devVer === 'V3') ? "🚨 CẢNH BÁO BỌT KHÍ / DỪNG (Đã khóa kẹp)" : "⚠️ Dừng chảy / Tắt dịch!";
-            }
-            if (statusStr === "AIR_ALARM") {
-                return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)";
-            }
-            if (statusStr === "COMPLETED") {
-                return (devVer === 'V3') ? "✅ HOÀN THÀNH LIMIT (Đã khóa servo)" : "✅ Hoàn thành định mức!";
-            }
-            if (statusStr === "BELOW") return "⚠️ Tốc độ thấp hơn y lệnh";
-            if (statusStr === "DISCONNECTED") return "Offline";
-            return statusStr;
-        }
+       function formatStatusText(statusStr, devVer = 'V3') {
+    if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
+    if (statusStr === "NORMAL") return "Đang truyền";
+    if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
+    if (statusStr === "STOPPED") {
+        return "⚠️ Dừng chảy / Tắt dịch ";
+    }
+    if (statusStr === "AIR_ALARM") {
+        return "🚨 CẢNH BÁO BỌT KHÍ! (Đã khóa servo)"; // <--- Hiển thị đúng câu này khi có khí
+    }
+    if (statusStr === "COMPLETED") {
+        return "✅ HOÀN THÀNH LIMIT (Đã khóa servo)";
+    }
+    if (statusStr === "BELOW") return "⚠️ Tốc độ thấp ";
+    if (statusStr === "DISCONNECTED") return "Offline";
+    return statusStr;
+}
 
         function renderGridView() {
             let count = getDeviceCount();
