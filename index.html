@@ -24,7 +24,7 @@
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 pb-12">
         <div id="devices-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Các thẻ thiết bị sẽ được render động tại đây -->
+            <!-- Các thẻ thiết bị cũ và mới sẽ được render động tại đây -->
         </div>
     </main>
 
@@ -39,7 +39,7 @@
             clean: true
         };
 
-        // Lưu trữ trạng thái các thiết bị theo ID cố định (tránh bị lệch khi xóa)
+        // Lưu trữ trạng thái tất cả các thiết bị theo ID cố định (tránh bị lệch/nhảy khi xóa)
         let devicesMap = {};
 
         // Khởi tạo kết nối MQTT
@@ -49,9 +49,9 @@
             document.getElementById('connection-status').innerText = 'Đã kết nối MQTT';
             document.getElementById('connection-status').className = 'px-3 py-1 bg-emerald-600 text-white rounded-full text-sm font-semibold';
             
-            // Subcribe tất cả các topic của thiết bị 10
-            client.subscribe('drip_monitor/dev10/#', (err) => {
-                if (!err) console.log("Đã đăng ký topic dev10 thành công!");
+            // Subcribe tất cả các topic wildcard để nhận dữ liệu từ mọi thiết bị (dev1, dev2, ..., dev10...)
+            client.subscribe('drip_monitor/#', (err) => {
+                if (!err) console.log("Đã đăng ký topic drip_monitor/# thành công!");
             });
         });
 
@@ -67,16 +67,16 @@
             const segments = topic.split('/');
             if (segments.length < 3) return;
 
-            const devId = segments[1]; // vd: dev10
+            const devId = segments[1]; // vd: dev1, dev10...
             const property = segments[2]; // flow, target, infused, limit_ml, status, battery
 
             if (!devicesMap[devId]) {
-                // Khởi tạo khung dữ liệu mặc định cho thiết bị nếu chưa có
+                // Khởi tạo mặc định nếu thiết bị mới xuất hiện
                 devicesMap[devId] = {
                     id: devId,
-                    name: "THIẾT BỊ 10 (dev10)",
-                    version: "V3",
-                    location: "Giường 10",
+                    name: `THIẾT BỊ (${devId.toUpperCase()})`,
+                    version: devId === 'dev10' ? "V3" : "V2",
+                    location: `Giường ${devId.replace('dev', '')}`,
                     flow: 0,
                     target: 40,
                     infused: "0.0",
@@ -94,11 +94,11 @@
             else if (property === 'status') devicesMap[devId].status = message;
             else if (property === 'battery') devicesMap[devId].battery = message;
 
-            // Render lại giao diện
+            // Render lại toàn bộ danh sách thiết bị
             renderDashboard();
         });
 
-        // Hàm định dạng câu chữ trạng thái chuẩn màu sắc
+        // Hàm định dạng trạng thái và màu sắc hiển thị
         function formatStatusText(statusStr) {
             if (!statusStr || statusStr === "CONNECTED") return { text: "Đã kết nối", bg: "bg-slate-100 text-slate-700 border-slate-200" };
             if (statusStr === "NORMAL") return { text: "Đang truyền dịch bình thường", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" };
@@ -110,18 +110,16 @@
             return { text: statusStr, bg: "bg-slate-100 text-slate-700 border-slate-200" };
         }
 
-        // Hàm xóa thiết bị an toàn bằng ID cố định (Không bị dịch mảng/nhảy giá trị)
+        // Hàm xóa thiết bị an toàn bằng ID cố định (Không bị dịch mảng/nhảy thiết bị)
         function deleteDevice(devId) {
             if (confirm(`Bạn có chắc muốn xóa/reset bảng theo dõi của ${devId}?`)) {
-                // Xóa retained message trên broker MQTT
                 client.publish(`drip_monitor/${devId}/status`, "", { retained: true });
-                // Xóa khỏi danh sách render
                 delete devicesMap[devId];
                 renderDashboard();
             }
         }
 
-        // Render toàn bộ giao diện Card thiết bị
+        // Render toàn bộ giao diện danh sách thiết bị
         function renderDashboard() {
             const container = document.getElementById('devices-container');
             container.innerHTML = '';
