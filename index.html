@@ -720,13 +720,18 @@
             restoreTelemetryToUI();
         }
 
-        function formatStatusText(statusStr) {
+        // HÀM XỬ LÝ TRẠNG THÁI HIỂN THỊ PHÂN BIỆT V2 VÀ V3 (ĐẶC QUYỀN TÍNH NĂNG BỌT KHÍ & KHÓA KẸP SERVO)
+        function formatStatusText(statusStr, devVer = 'V3') {
             if (!statusStr || statusStr === "CONNECTED") return "Đã kết nối";
             if (statusStr === "NORMAL") return "Đang truyền";
-            if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ!";
-            if (statusStr === "STOPPED") return "⚠️ Tắt dịch - Dừng chảy!";
-            if (statusStr === "COMPLETED") return "✅ Hoàn thành!";
-            if (statusStr === "BELOW") return "⚠️ Tốc độ thấp";
+            if (statusStr === "EXCEEDED") return "⚠️ Quá tốc độ dòng!";
+            if (statusStr === "STOPPED") {
+                return (devVer === 'V3') ? "🚨 CẢNH BÁO BỌT KHÍ / DỪNG (Đã khóa kẹp)" : "⚠️ Dừng chảy / Tắt dịch!";
+            }
+            if (statusStr === "COMPLETED") {
+                return (devVer === 'V3') ? "✅ HOÀN THÀNH LIMIT (Đã khóa servo)" : "✅ Hoàn thành định mức!";
+            }
+            if (statusStr === "BELOW") return "⚠️ Tốc độ thấp hơn y lệnh";
             if (statusStr === "DISCONNECTED") return "Offline";
             return statusStr;
         }
@@ -740,7 +745,7 @@
                 let globalId = getGlobalDeviceIndex(currentDept, i);
                 let devTopicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
                 let savedBed = localStorage.getItem(`infucare_${currentDept}_dev_${i}_bed`) || `Giường ${i}`;
-                let devVer = localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3'; // Mặc định V3 cho thiết bị mới
+                let devVer = localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3'; 
                 let verClass = (devVer === 'V2') ? 'v2' : 'v3';
                 
                 let deleteBtnHtml = isAdminLoggedIn ? `<button class="btn-delete" title="Xóa thiết bị" onclick="removeDevice(${i})" style="display: inline-block;">🗑️</button>` : '';
@@ -750,7 +755,7 @@
                 let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
 
                 html += `
-                    <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
+                    <div class="device-card" id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}" data-ver="${devVer}">
                         <div class="device-header">
                             <span class="device-title">THIẾT BỊ ${globalId} (${devTopicId}) <span class="version-tag ${verClass}">${devVer}</span></span>
                             <div style="display: flex; align-items: center; gap: 4px;">
@@ -812,7 +817,7 @@
                                 <th>Tốc độ thực tế</th>
                                 <th>Tốc độ y lệnh</th>
                                 <th>Truyền/Giới hạn</th>
-                                <th>Trạng thái</th>
+                                <th>Trạng thái (V3: Khóa servo/Air)</th>
                                 <th style="text-align: center;">Xóa</th>
                             </tr>
                         </thead>
@@ -832,7 +837,7 @@
                 let savedLimit = (targetStore[devTopicId] && targetStore[devTopicId].limit) ? targetStore[devTopicId].limit : '500';
 
                 html += `
-                    <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}">
+                    <tr id="device-ui-${currentDept}-${i}" data-topicid="${devTopicId}" data-ver="${devVer}">
                         <td style="font-weight: bold; color: var(--primary-blue);">TB ${globalId}</td>
                         <td><span class="version-tag ${verClass}">${devVer}</span></td>
                         <td><input type="text" class="bed-input" id="bedname-tbl-${currentDept}-${i}" value="${savedBed}" onchange="saveBedMappingTable('${i}')" style="${inputStyle}; width: 65px;"></td>
@@ -937,7 +942,7 @@
 
         function addNewDevice() {
             if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
-            let choice = prompt("Chọn phiên bản thiết bị muốn thêm:\n1. Thiết bị V2 cũ\n2. Thiết bị V3 mới (Nhiều tính năng)\n\nNhập số (1 hoặc 2):", "2");
+            let choice = prompt("Chọn phiên bản thiết bị muốn thêm:\n1. Thiết bị V2 cũ\n2. Thiết bị V3 mới (Có cảm biến bọt khí & Khóa servo)\n\nNhập số (1 hoặc 2):", "2");
             if (choice === null) return;
             
             let devVer = (choice.trim() === '1') ? 'V2' : 'V3';
@@ -1055,6 +1060,18 @@
             return devTopicId;
         }
 
+        function getDeviceVersionByTopicId(devTopicId) {
+            let count = getDeviceCount();
+            for (let i = 1; i <= count; i++) {
+                let globalId = getGlobalDeviceIndex(currentDept, i);
+                let topicId = globalId < 10 ? `dev0${globalId}` : `dev${globalId}`;
+                if (topicId === devTopicId) {
+                    return localStorage.getItem(`infucare_${currentDept}_dev_${i}_ver`) || 'V3';
+                }
+            }
+            return 'V3';
+        }
+
         function updateDeviceUI(devTopicId, data) {
             if (!data) return;
 
@@ -1064,6 +1081,7 @@
                 return;
             }
 
+            let devVer = getDeviceVersionByTopicId(devTopicId);
             let isDanger = (currentStatus === "EXCEEDED" || currentStatus === "STOPPED");
             let isBelow = (currentStatus === "BELOW");
 
@@ -1094,7 +1112,7 @@
                 if (data.statusText !== undefined) {
                     let footer = document.getElementById(`status-${devTopicId}`);
                     if(footer) {
-                        footer.innerText = formatStatusText(data.statusText);
+                        footer.innerText = formatStatusText(data.statusText, devVer);
                         footer.className = "device-status-footer";
                         if (currentStatus === "CONNECTED" || currentStatus === "NORMAL" || currentStatus === "COMPLETED") {
                             footer.classList.add('active');
@@ -1132,7 +1150,7 @@
                 if (data.statusText !== undefined) {
                     let statTbl = document.getElementById(`status-tbl-${devTopicId}`);
                     if(statTbl) {
-                        statTbl.innerText = formatStatusText(data.statusText);
+                        statTbl.innerText = formatStatusText(data.statusText, devVer);
                         if (currentStatus === "CONNECTED" || currentStatus === "NORMAL" || currentStatus === "COMPLETED") {
                             statTbl.style.color = "var(--neon-green)";
                         } else if (currentStatus === "BELOW") {
