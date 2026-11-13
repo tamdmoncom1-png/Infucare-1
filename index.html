@@ -173,6 +173,11 @@
         .btn-admin.logged-in {
             background: #16a34a;
         }
+        .btn-dept-login {
+            background: #7c3aed;
+            color: white;
+            border: none;
+        }
         .connection-badge {
             background: #fef2f2;
             padding: 4px 8px;
@@ -501,6 +506,7 @@
                 <button class="btn-action" onclick="setViewMode('compact')" id="btn-compact">📱 Mobile</button>
                 <button class="btn-action" onclick="setViewMode('history')" id="btn-history" style="background: #e0f2fe; color: var(--primary-blue);">📋 Lịch sử HIS</button>
                 <button class="btn-action" onclick="requestNotifPermission()" id="btn-notif" style="background: #fef3c7; color: #d97706;">🔔 Bật Thông Báo</button>
+                <button class="btn-action btn-dept-login" id="btn-dept-auth" onclick="deptLogin()">🔑 Đăng Nhập Khoa</button>
                 <button class="btn-action btn-admin" id="btn-admin-auth" onclick="toggleAdminAuth()">🔒 Admin</button>
                 <div id="connection-status" class="connection-badge">Đang kết nối...</div>
             </div>
@@ -531,6 +537,7 @@
         
         const ADMIN_PASSWORD = "tamcamau2026";
         let isAdminLoggedIn = sessionStorage.getItem('infucare_admin_auth') === 'true';
+        let loggedInDeptKey = sessionStorage.getItem('infucare_logged_dept') || null;
 
         // Khởi tạo Audio Context cho trình duyệt phát âm thanh cảnh báo
         let audioCtx = null;
@@ -604,11 +611,14 @@
             let depts = JSON.parse(localStorage.getItem('infucare_departments'));
             if (!depts || depts.length === 0) {
                 depts = [
-                    { key: 'KHOA_A', name: 'Khoa A' },
-                    { key: 'KHOA_B', name: 'Khoa B' },
-                    { key: 'KHOA_C', name: 'Khoa C' }
+                    { key: 'KHOA_A', name: 'Khoa A', pass: 'khoaa123' },
+                    { key: 'KHOA_B', name: 'Khoa B', pass: 'khoab123' },
+                    { key: 'KHOA_C', name: 'Khoa C', pass: 'khoac123' }
                 ];
                 localStorage.setItem('infucare_departments', JSON.stringify(depts));
+            } else {
+                // Đảm bảo các khoa cũ có trường password mặc định
+                depts = depts.map(d => ({ ...d, pass: d.pass || (d.key.toLowerCase() + '123') }));
             }
             return depts;
         }
@@ -633,6 +643,33 @@
             }
         });
 
+        function deptLogin() {
+            let depts = getDepartments();
+            let deptOptionsStr = depts.map((d, index) => `${index + 1}. ${d.name} (${d.key})`).join('\n');
+            let choice = prompt(`Chọn số thứ tự Khoa cần đăng nhập:\n${deptOptionsStr}\n\nNhập số thứ tự:`);
+            if (!choice) return;
+            
+            let idx = parseInt(choice.trim()) - 1;
+            if (isNaN(idx) || idx < 0 || idx >= depts.length) {
+                alert("Lựa chọn không hợp lệ!");
+                return;
+            }
+
+            let selectedDept = depts[idx];
+            let pass = prompt(`Nhập mật khẩu cho ${selectedDept.name}:`);
+            if (pass === selectedDept.pass || pass === ADMIN_PASSWORD) {
+                loggedInDeptKey = selectedDept.key;
+                sessionStorage.setItem('infucare_logged_dept', loggedInDeptKey);
+                currentDept = selectedDept.key;
+                localStorage.setItem('infucare_current_dept', currentDept);
+                updateAdminUIState();
+                renderApp();
+                alert(`Đăng nhập thành công vào ${selectedDept.name}! Bạn chỉ xem được thiết bị của khoa này.`);
+            } else {
+                alert("Mật khẩu khoa không chính xác!");
+            }
+        }
+
         function toggleAdminAuth() {
             if (isAdminLoggedIn) {
                 if (confirm("Bạn có muốn đăng xuất quyền quản trị không?")) {
@@ -643,30 +680,39 @@
                     alert("Đã đăng xuất quyền quản trị.");
                 }
             } else {
-                let pass = prompt("Nhập mật khẩu quản trị hệ thống:");
+                let pass = prompt("Nhập mật khẩu quản trị hệ thống (Admin):");
                 if (pass === ADMIN_PASSWORD) {
                     isAdminLoggedIn = true;
                     sessionStorage.setItem('infucare_admin_auth', 'true');
                     updateAdminUIState();
                     renderApp();
-                    alert("Đăng nhập quản trị thành công!");
+                    alert("Đăng nhập quản trị thành công! Bạn có toàn quyền cấu hình các khoa.");
                 } else if (pass !== null) {
-                    alert("Mật khẩu không chính xác!");
+                    alert("Mật khẩu quản trị không chính xác!");
                 }
             }
         }
 
         function updateAdminUIState() {
             const btnAuth = document.getElementById('btn-admin-auth');
+            const btnDeptAuth = document.getElementById('btn-dept-auth');
             const btnAddDev = document.getElementById('btn-add-dev-main');
             
             if (isAdminLoggedIn) {
                 btnAuth.innerText = "🔓 Admin";
                 btnAuth.classList.add('logged-in');
+                btnDeptAuth.innerText = "🔑 Đang xem tất cả (Admin)";
                 if(btnAddDev) btnAddDev.style.display = "flex";
             } else {
                 btnAuth.innerText = "🔒 Admin";
                 btnAuth.classList.remove('logged-in');
+                if (loggedInDeptKey) {
+                    let depts = getDepartments();
+                    let d = depts.find(x => x.key === loggedInDeptKey);
+                    btnDeptAuth.innerText = `🔑 ${d ? d.name : 'Khoa'}`;
+                } else {
+                    btnDeptAuth.innerText = "🔑 Đăng Nhập Khoa";
+                }
                 if(btnAddDev) btnAddDev.style.display = "none";
             }
         }
@@ -675,6 +721,11 @@
             let depts = getDepartments();
             let html = '';
             depts.forEach(d => {
+                // Nếu nhân viên khoa đang đăng nhập, chỉ hiện tab của khoa đó (hoặc Admin hiện tất cả)
+                if (!isAdminLoggedIn && loggedInDeptKey && d.key !== loggedInDeptKey) {
+                    return;
+                }
+
                 let isActive = d.key === currentDept ? 'active' : '';
                 let deleteBtn = (isAdminLoggedIn && depts.length > 1) ? `<button class="tab-delete-icon" title="Xóa khoa" onclick="removeDept('${d.key}', event)">🗑</button>` : '';
                 html += `
@@ -695,9 +746,12 @@
             let deptName = prompt("Nhập tên khoa mới (ví dụ: Khoa Cấp Cứu, Khoa Nhi...):");
             if (!deptName || deptName.trim() === "") return;
             
+            let defaultPass = prompt("Đặt mật khẩu cho khoa mới này:", "123456");
+            if (!defaultPass) defaultPass = "123456";
+
             let key = 'KHOA_' + Date.now();
             let depts = getDepartments();
-            depts.push({ key: key, name: deptName.trim() });
+            depts.push({ key: key, name: deptName.trim(), pass: defaultPass.trim() });
             localStorage.setItem('infucare_departments', JSON.stringify(depts));
             
             switchDept(key);
@@ -725,6 +779,11 @@
         }
 
         function getDeviceList() {
+            // Nếu có tài khoản khoa đang login và không phải Admin, ép buộc chỉ xem đúng khoa của họ
+            if (!isAdminLoggedIn && loggedInDeptKey) {
+                currentDept = loggedInDeptKey;
+            }
+
             let list = JSON.parse(localStorage.getItem(`infucare_device_list_${currentDept}`));
             if (!list) {
                 let count = parseInt(localStorage.getItem(`infucare_device_count_${currentDept}`)) || 0;
@@ -775,7 +834,7 @@
             }
 
             if (devices.length === 0) {
-                let addBtnHtml = isAdminLoggedIn ? `<button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto; display: flex;">+ Thêm Thiết Bị</button>` : `<p style="color: var(--text-muted); font-size: 13px;">Chế độ chỉ xem. Đăng nhập Quản trị để thêm thiết bị.</p>`;
+                let addBtnHtml = isAdminLoggedIn ? `<button class="btn-action btn-add" onclick="addNewDevice()" style="margin: 0 auto; display: flex;">+ Thêm Thiết Bị</button>` : `<p style="color: var(--text-muted); font-size: 13px;">Chế độ xem của ${deptName}. Chưa có thiết bị nào được gán. Đăng nhập Quản trị để thêm.</p>`;
                 document.getElementById('main-content').innerHTML = `
                     <div style="text-align: center; padding: 30px 15px; background: var(--card-bg); border-radius: 12px; border: 1.5px solid var(--card-border);">
                         <h3 style="color: var(--text-muted); margin-bottom: 6px; font-size: 15px;">Chưa có thiết bị nào trong ${deptName}</h3>
@@ -1003,6 +1062,10 @@
         }
 
         function switchDept(deptKey) {
+            if (!isAdminLoggedIn && loggedInDeptKey && deptKey !== loggedInDeptKey) {
+                alert("Bạn chỉ có quyền xem dữ liệu của khoa đã đăng nhập!");
+                return;
+            }
             currentDept = deptKey;
             localStorage.setItem('infucare_current_dept', deptKey);
             renderApp();
@@ -1010,7 +1073,7 @@
 
         function addNewDevice() {
             if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
-            let defaultId = prompt("Nhập mã/topic ID thiết bị mới (ví dụ: dev09, dev10, dev11...):", "dev10");
+            let defaultId = prompt("Nhập mã/topic ID thiết bị mới (ví dụ: dev01, dev02...):", "dev01");
             if (!defaultId || defaultId.trim() === "") return;
             defaultId = defaultId.trim().toLowerCase();
 
@@ -1032,7 +1095,7 @@
 
         function removeDevice(devTopicId) {
             if (!isAdminLoggedIn) return alert("Vui lòng đăng nhập quản trị!");
-            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị ${devTopicId} khỏi danh sách theo dõi không?`)) {
+            if (confirm(`Bạn có chắc chắn muốn xóa thiết bị ${devTopicId} khỏi danh sách theo dõi của khoa này không?`)) {
                 let devices = getDeviceList();
                 let filtered = devices.filter(d => d.id !== devTopicId);
                 localStorage.setItem(`infucare_device_list_${currentDept}`, JSON.stringify(filtered));
@@ -1296,7 +1359,6 @@
 
                     let bedName = getBedNameByTopicId(devTopicId);
 
-                    // KÍCH HOẠT ÂM THANH VÀ THÔNG BÁO ĐẨY (WEB PUSH NOTIFICATION) KHI CÓ SỰ CỐ
                     if (message !== oldStatus) {
                         if (message === "AIR_ALARM" || message === "COMPLETED" || message === "EXCEEDED" || message === "STOPPED") {
                             playAlertSound();
